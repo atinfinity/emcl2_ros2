@@ -17,7 +17,8 @@ class ExpResetMcl2 : public Mcl
 	  const Pose & p, int num, const Scan & scan, const std::shared_ptr<OdomModel> & odom_model,
 	  const std::shared_ptr<LikelihoodFieldMap> & map, double alpha_th,
 	  double expansion_radius_position, double expansion_radius_orientation,
-	  double extraction_rate, double successive_penetration_threshold, bool sensor_reset);
+	  double extraction_rate, double successive_penetration_threshold, bool sensor_reset,
+	  bool enable_expansion_resetting);
 	~ExpResetMcl2();
 
 	void sensorUpdate(double lidar_x, double lidar_y, double lidar_t, bool inv);
@@ -30,6 +31,7 @@ class ExpResetMcl2 : public Mcl
 	double extraction_rate_;
 	double range_threshold_;
 	bool sensor_reset_;
+	bool enable_expansion_resetting_;
 
 	void expansionReset(void);
 

@@ -16,14 +16,15 @@ ExpResetMcl2::ExpResetMcl2(
   const Pose & p, int num, const Scan & scan, const std::shared_ptr<OdomModel> & odom_model,
   const std::shared_ptr<LikelihoodFieldMap> & map, double alpha_th,
   double expansion_radius_position, double expansion_radius_orientation, double extraction_rate,
-  double range_threshold, bool sensor_reset)
+  double range_threshold, bool sensor_reset, bool enable_expansion_resetting)
 : Mcl::Mcl(p, num, scan, odom_model, map),
   alpha_threshold_(alpha_th),
   expansion_radius_position_(expansion_radius_position),
   expansion_radius_orientation_(expansion_radius_orientation),
   extraction_rate_(extraction_rate),
   range_threshold_(range_threshold),
-  sensor_reset_(sensor_reset)
+  sensor_reset_(sensor_reset),
+  enable_expansion_resetting_(enable_expansion_resetting)
 {
 }
 
@@ -57,7 +58,7 @@ void ExpResetMcl2::sensorUpdate(double lidar_x, double lidar_y, double lidar_t, 
 
 	alpha_ = nonPenetrationRate(static_cast<int>(particles_.size() * extraction_rate_), map_.get(), scan);
 	RCLCPP_INFO(rclcpp::get_logger("emcl2_node"), "ALPHA: %f / %f", alpha_, alpha_threshold_);
-	if (alpha_ < alpha_threshold_) {
+	if (enable_expansion_resetting_ && alpha_ < alpha_threshold_) {
 		RCLCPP_INFO(rclcpp::get_logger("emcl2_node"), "RESET");
 		expansionReset();
 		for (auto & p : particles_) {

@@ -98,6 +98,7 @@ This node also has a sensor resetting algorithm. When `sensor_reset` is true, a 
 | `extraction_rate`              | `double`  | 0.1        | rate of particles that are checked by the node                     |
 | `range_threshold`              | `double`  | 0.3 [rad]  | threshold of the range of lasers                                   |
 | `sensor_reset`                 | `bool`    | true       | flag for sensor resettings                                         |
+| `enable_expansion_resetting`   | `bool`    | true       | flag to enable/disable expansion resetting; when set to false, the expansion reset is skipped even if alpha falls below alpha_threshold |
 
 
 
