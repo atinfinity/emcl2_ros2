@@ -394,7 +394,11 @@ bool EMcl2Node::getOdomPose(double & x, double & y, double & yaw)
 {
   geometry_msgs::msg::PoseStamped ident;
   ident.header.frame_id = footprint_frame_id_;
-  ident.header.stamp = rclcpp::Time(0);
+  // Look up odometry at the scan's timestamp, not at the latest available time,
+  // so that motionUpdate() and sensorUpdate() operate on the same instant. Using
+  // the latest odometry against an older scan offsets the two by the scan latency,
+  // which shows up as the scan diverging from the map during fast rotation.
+  ident.header.stamp = scan_time_stamp_;
   tf2::toMsg(tf2::Transform::getIdentity(), ident.pose);
 
   geometry_msgs::msg::PoseStamped odom_pose;
