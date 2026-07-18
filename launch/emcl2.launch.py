@@ -45,7 +45,7 @@ def generate_launch_description():
             TextSubstitution(text='emcl2.param.yaml')],
         description='emcl2 param file path')
 
-    lifecycle_nodes = ['map_server']
+    lifecycle_nodes = ['map_server', 'emcl2']
 
     launch_node = GroupAction(
         actions=[

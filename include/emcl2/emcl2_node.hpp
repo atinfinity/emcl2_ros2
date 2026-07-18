@@ -33,8 +33,10 @@
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <nav2_msgs/msg/particle_cloud.hpp>
 #include <nav2_msgs/srv/set_initial_pose.hpp>
+#include <nav2_util/lifecycle_node.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/time.hpp>
+#include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <std_srvs/srv/empty.hpp>
@@ -45,25 +47,38 @@
 
 namespace emcl2
 {
-class EMcl2Node : public rclcpp::Node
+class EMcl2Node : public nav2_util::LifecycleNode
 {
 public:
-  EMcl2Node();
+  explicit EMcl2Node(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
   ~EMcl2Node();
 
   void loop(void);
 
+protected:
+  // Managed-node lifecycle transitions (see nav2_util::LifecycleNode).
+  nav2_util::CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
+  nav2_util::CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
+  nav2_util::CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
+  nav2_util::CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
+  nav2_util::CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
+
 private:
   std::shared_ptr<ExpResetMcl2> pf_;
 
-  rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr particlecloud_pub_;
-  rclcpp::Publisher<nav2_msgs::msg::ParticleCloud>::SharedPtr particle_cloud_pub_;
-  rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_pub_;
-  rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr alpha_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseArray>::SharedPtr
+    particlecloud_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<nav2_msgs::msg::ParticleCloud>::SharedPtr
+    particle_cloud_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
+    pose_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Float32>::SharedPtr alpha_pub_;
   // The scan is fed through a tf2 MessageFilter so the callback only fires once
   // the odom->base transform at the scan's timestamp is available. Processing the
   // scan directly would race the transform and drop most updates.
-  std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::LaserScan>> laser_scan_sub_;
+  std::shared_ptr<
+    message_filters::Subscriber<sensor_msgs::msg::LaserScan, rclcpp_lifecycle::LifecycleNode>>
+  laser_scan_sub_;
   std::shared_ptr<tf2_ros::MessageFilter<sensor_msgs::msg::LaserScan>> laser_scan_filter_;
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
     initial_pose_sub_;
@@ -88,6 +103,7 @@ private:
 
   tf2::Transform latest_tf_;
 
+  bool active_;
   bool init_pf_;
   bool init_request_;
   bool initialpose_receive_;

@@ -14,9 +14,13 @@
   <buildtool_depend>ament_cmake_auto</buildtool_depend>
 
   <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>rclcpp_components</depend>
+  <depend>bondcpp</depend>
   <depend>geometry_msgs</depend>
   <depend>message_filters</depend>
   <depend>nav2_msgs</depend>
+  <depend>nav2_util</depend>
   <depend>nav_msgs</depend>
   <depend>sensor_msgs</depend>
   <exec_depend>ros2launch</exec_depend>
