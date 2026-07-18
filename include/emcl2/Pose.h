@@ -11,32 +11,33 @@
 namespace emcl2
 {
 
-class Pose
-{
-      public:
-	Pose() {}
-	Pose(double x, double y, double t);
-	Pose(const Pose & other);
+  class Pose
+  {
+public:
+    Pose() {
+    }
+    Pose(double x, double y, double t);
+    Pose(const Pose & other);
 
-	void set(double x, double y, double t);
-	void set(const Pose & p);
-	std::string to_s(void);
+    void set(double x, double y, double t);
+    void set(const Pose & p);
+    std::string to_s(void);
 
-	void normalizeAngle(void);
-	void move(
-	  double length, double direction, double rotation, double fw_noise, double rot_noise);
+    void normalizeAngle(void);
+    void move(
+      double length, double direction, double rotation, double fw_noise, double rot_noise);
 
-	Pose operator-(const Pose & p) const;
-	Pose operator=(const Pose & p);
+    Pose operator - (const Pose & p) const;
+    Pose operator = (const Pose & p);
 
-	bool nearlyZero(void);
+    bool nearlyZero(void);
 
-	double x_, y_, t_;
+    double x_, y_, t_;
 
-	uint16_t get16bitRepresentation(void);
-	static uint16_t get16bitRepresentation(double);
-};
+    uint16_t get16bitRepresentation(void);
+    static uint16_t get16bitRepresentation(double);
+  };
 
 }  // namespace emcl2
 
-#endif	// EMCL2__POSE_H_
+#endif  // EMCL2__POSE_H_
