@@ -28,7 +28,7 @@ jobs:
           apt update
           rosdep update
           rosdep install -i -y --from-path src --rosdistro $ROS_DISTRO
-          colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+          colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARK=ON
         shell: bash
       - name: Test
         run: |

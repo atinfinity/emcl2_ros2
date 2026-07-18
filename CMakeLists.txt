@@ -29,10 +29,21 @@ ament_auto_add_library(emcl2_core STATIC
   src/LikelihoodFieldMap.cpp
 )
 
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+  target_link_libraries(emcl2_core OpenMP::OpenMP_CXX)
+endif()
+
 ament_auto_add_executable(emcl2_node
   src/emcl2_node.cpp
 )
 target_link_libraries(emcl2_node emcl2_core)
+
+option(BUILD_BENCHMARK "Build the micro benchmark" OFF)
+if(BUILD_BENCHMARK)
+  ament_auto_add_executable(bench_emcl2 bench/bench_emcl2.cpp)
+  target_link_libraries(bench_emcl2 emcl2_core)
+endif()
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

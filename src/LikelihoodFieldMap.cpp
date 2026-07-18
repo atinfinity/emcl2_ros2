@@ -47,6 +47,7 @@ LikelihoodFieldMap::LikelihoodFieldMap(
   origin_y_ = map.info.origin.position.y;
 
   resolution_ = map.info.resolution;
+  inv_resolution_ = 1.0 / resolution_;
 
   likelihoods_.assign(static_cast<size_t>(width_) * height_, 0);
 
@@ -62,18 +63,6 @@ LikelihoodFieldMap::LikelihoodFieldMap(
   }
 
   // normalize();
-}
-
-uint8_t LikelihoodFieldMap::likelihood(double x, double y)
-{
-  int ix = static_cast<int>(floor((x - origin_x_) / resolution_));
-  int iy = static_cast<int>(floor((y - origin_y_) / resolution_));
-
-  if (ix < 0 || iy < 0 || ix >= width_ || iy >= height_) {
-    return 0.0;
-  }
-
-  return likelihoods_[ix + iy * width_];
 }
 
 void LikelihoodFieldMap::setLikelihood(int x, int y, double range)

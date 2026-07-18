@@ -69,8 +69,12 @@ void ExpResetMcl2::sensorUpdate(double lidar_x, double lidar_y, double lidar_t, 
     return;
   }
 
-  for (auto & p : particles_) {
-    p.w_ *= p.likelihood(map_.get(), scan);
+  const int num = static_cast<int>(particles_.size());
+#ifdef _OPENMP
+  #pragma omp parallel for
+#endif
+  for (int i = 0; i < num; i++) {
+    particles_[i].w_ *= particles_[i].likelihood(map_.get(), scan);
   }
 
   alpha_ = nonPenetrationRate(static_cast<int>(particles_.size() * extraction_rate_), map_.get(),
@@ -79,8 +83,11 @@ void ExpResetMcl2::sensorUpdate(double lidar_x, double lidar_y, double lidar_t, 
   if (enable_expansion_resetting_ && alpha_ < alpha_threshold_) {
     RCLCPP_INFO(rclcpp::get_logger("emcl2_node"), "RESET");
     expansionReset();
-    for (auto & p : particles_) {
-      p.w_ *= p.likelihood(map_.get(), scan);
+#ifdef _OPENMP
+    #pragma omp parallel for
+#endif
+    for (int i = 0; i < num; i++) {
+      particles_[i].w_ *= particles_[i].likelihood(map_.get(), scan);
     }
   }
 
@@ -100,11 +107,16 @@ double ExpResetMcl2::nonPenetrationRate(int skip, LikelihoodFieldMap * map, Scan
   }
 
   static uint16_t shift = 0;
+  const int start = shift % skip;
+  const int n = (static_cast<int>(particles_.size()) - start + skip - 1) / skip;
   int counter = 0;
   int penetrating = 0;
-  for (size_t i = shift % skip; i < particles_.size(); i += skip) {
+#ifdef _OPENMP
+  #pragma omp parallel for schedule(dynamic) reduction(+ : counter, penetrating)
+#endif
+  for (int k = 0; k < n; k++) {
     counter++;
-    if (particles_[i].wallConflict(map, scan, range_threshold_, sensor_reset_)) {
+    if (particles_[start + k * skip].wallConflict(map, scan, range_threshold_, sensor_reset_)) {
       penetrating++;
     }
   }
