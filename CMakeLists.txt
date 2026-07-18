@@ -57,6 +57,9 @@ endif()
 install(PROGRAMS
   test/test.bash
   test/test_gui.bash
+  test/drive_path.py
+  test/pose_logger.py
+  test/run_localization_eval.sh
   DESTINATION lib/${PROJECT_NAME}
 )
 
