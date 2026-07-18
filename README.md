@@ -1,6 +1,6 @@
 # emcl2_ros2: mcl with expansion resetting (version 2)
 
-[![test](https://github.com/CIT-Autonomous-Robot-Lab/emcl2_ros2/actions/workflows/test.yml/badge.svg)](https://github.com/CIT-Autonomous-Robot-Lab/emcl2_ros2/actions/workflows/test.yml)
+[![test](https://github.com/atinfinity/emcl2_ros2/actions/workflows/test.yml/badge.svg?branch=jazzy)](https://github.com/atinfinity/emcl2_ros2/actions/workflows/test.yml)
 
 Emcl is an alternative Monte Carlo localization (MCL) package to amcl (http://wiki.ros.org/amcl). Differently from amcl, KLD-sampling and adaptive MCL are not implemented. Instead, the expansion resetting and other features are implemented[^1][^2].
 
@@ -8,7 +8,7 @@ This package is ROS 2 version of [ryuichiueda/emcl2](https://github.com/ryuichiu
 
 ## ROS 2 version 
 
-* ROS 2 Humble Hawksbill
+* ROS 2 Jazzy Jalisco
 
 ## quick start
 
