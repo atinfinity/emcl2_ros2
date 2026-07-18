@@ -43,11 +43,11 @@ public:
     double length, double direction, double rotation, double fw_noise, double rot_noise);
 
   Pose operator-(const Pose & p) const;
-  Pose operator=(const Pose & p);
+  Pose & operator=(const Pose & p);
 
   bool nearlyZero(void);
 
-  double x_, y_, t_;
+  double x_ = 0.0, y_ = 0.0, t_ = 0.0;
 
   uint16_t get16bitRepresentation(void);
   static uint16_t get16bitRepresentation(double);

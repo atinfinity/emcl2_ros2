@@ -32,12 +32,11 @@ class LikelihoodFieldMap
 {
 public:
   LikelihoodFieldMap(const nav_msgs::msg::OccupancyGrid & map, double likelihood_range);
-  ~LikelihoodFieldMap();
 
   void setLikelihood(int x, int y, double range);
   uint8_t likelihood(double x, double y);
 
-  std::vector<uint8_t *> likelihoods_;
+  std::vector<uint8_t> likelihoods_;
   int width_;
   int height_;
 
@@ -49,8 +48,6 @@ public:
 
 private:
   std::vector<std::pair<int, int>> free_cells_;
-
-  void normalize(void);
 };
 
 }  // namespace emcl2

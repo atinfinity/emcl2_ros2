@@ -13,7 +13,7 @@ find_package(ament_cmake_auto REQUIRED)
 
 ament_auto_find_build_dependencies()
 
-ament_auto_add_executable(emcl2_node
+ament_auto_add_library(emcl2_core STATIC
   src/Mcl.cpp
   src/ExpResetMcl2.cpp
   src/Particle.cpp
@@ -21,12 +21,20 @@ ament_auto_add_executable(emcl2_node
   src/Pose.cpp
   src/Scan.cpp
   src/LikelihoodFieldMap.cpp
+)
+
+ament_auto_add_executable(emcl2_node
   src/emcl2_node.cpp
 )
+target_link_libraries(emcl2_node emcl2_core)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
+
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_emcl2 test/test_emcl2.cpp)
+  target_link_libraries(test_emcl2 emcl2_core)
 endif()
 
 install(PROGRAMS
