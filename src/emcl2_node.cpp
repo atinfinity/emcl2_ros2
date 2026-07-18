@@ -306,13 +306,13 @@ void EMcl2Node::publishPose(
   p.pose.pose.position.y = y;
   p.pose.covariance[6 * 0 + 0] = x_dev;
   p.pose.covariance[6 * 1 + 1] = y_dev;
-  p.pose.covariance[6 * 2 + 2] = t_dev;
+  p.pose.covariance[6 * 5 + 5] = t_dev;
   p.pose.covariance[6 * 0 + 1] = xy_cov;
   p.pose.covariance[6 * 1 + 0] = xy_cov;
-  p.pose.covariance[6 * 0 + 2] = tx_cov;
-  p.pose.covariance[6 * 2 + 0] = tx_cov;
-  p.pose.covariance[6 * 1 + 2] = yt_cov;
-  p.pose.covariance[6 * 2 + 1] = yt_cov;
+  p.pose.covariance[6 * 0 + 5] = tx_cov;
+  p.pose.covariance[6 * 5 + 0] = tx_cov;
+  p.pose.covariance[6 * 1 + 5] = yt_cov;
+  p.pose.covariance[6 * 5 + 1] = yt_cov;
 
   tf2::Quaternion q;
   q.setRPY(0, 0, t);
