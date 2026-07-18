@@ -31,6 +31,7 @@
 
 #include <geometry_msgs/msg/pose_array.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
+#include <nav2_msgs/srv/set_initial_pose.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/time.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
@@ -68,6 +69,9 @@ private:
 
   // ros::ServiceServer global_loc_srv_;
   rclcpp::Service<std_srvs::srv::Empty>::SharedPtr global_loc_srv_;
+  rclcpp::Service<std_srvs::srv::Empty>::SharedPtr reinit_global_loc_srv_;
+  rclcpp::Service<std_srvs::srv::Empty>::SharedPtr nomotion_update_srv_;
+  rclcpp::Service<nav2_msgs::srv::SetInitialPose>::SharedPtr set_initial_pose_srv_;
   rclcpp::Time scan_time_stamp_;
 
   std::string footprint_frame_id_;
@@ -114,6 +118,13 @@ private:
   void cbSimpleReset(
     const std_srvs::srv::Empty::Request::ConstSharedPtr,
     std_srvs::srv::Empty::Response::SharedPtr);
+  void cbNomotionUpdate(
+    const std_srvs::srv::Empty::Request::ConstSharedPtr,
+    std_srvs::srv::Empty::Response::SharedPtr);
+  void cbSetInitialPose(
+    const nav2_msgs::srv::SetInitialPose::Request::ConstSharedPtr req,
+    nav2_msgs::srv::SetInitialPose::Response::SharedPtr);
+  void setInitialPose(double x, double y, double t);
   void initialPoseReceived(
     const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr
     msg);                                 // same name is found in amcl

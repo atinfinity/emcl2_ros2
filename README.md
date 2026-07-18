@@ -78,6 +78,15 @@ This node also has a sensor resetting algorithm. When `sensor_reset` is true, a 
 | `tf`            | [`tf/tfMessage`](http://docs.ros.org/en/noetic/api/tf/html/msg/tfMessage.html)                            | the transform from odom (which can be remapped via the odom_frame_id parameter) to map | 
 | `alpha`         | [`std_msgs/Float32`](http://docs.ros.org/en/noetic/api/std_msgs/html/msg/Float32.html)                        | marginal likelihood of particles after sensor update                                    | 
 
+#### Services
+
+| Name          | Type   | Description   |
+| ------------- | ------ | ------------- |
+| `global_localization` | [`std_srvs/Empty`](https://docs.ros.org/en/jazzy/p/std_srvs/interfaces/srv/Empty.html) | scatter the particles uniformly over the free space of the map (global localization) |
+| `reinitialize_global_localization` | [`std_srvs/Empty`](https://docs.ros.org/en/jazzy/p/std_srvs/interfaces/srv/Empty.html) | same as `global_localization`; provided under the name used by `nav2_amcl` |
+| `request_nomotion_update` | [`std_srvs/Empty`](https://docs.ros.org/en/jazzy/p/std_srvs/interfaces/srv/Empty.html) | force one more sensor update on the latest scan without waiting for motion |
+| `set_initial_pose` | [`nav2_msgs/SetInitialPose`](https://docs.ros.org/en/jazzy/p/nav2_msgs/interfaces/srv/SetInitialPose.html) | (re)initialize the particles at the given pose, like publishing to `initialpose` |
+
 #### Parameters
 
 | Name                          | Type    | Default    | Description                                                        |
@@ -116,7 +125,6 @@ The followings have never been implemented yet.
 
 ## To do
 
-* Implement service
 * Fix a bug that caused particles to survive
 
 ## citation
