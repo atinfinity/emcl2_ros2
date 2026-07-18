@@ -43,8 +43,9 @@
 
 namespace emcl2
 {
-EMcl2Node::EMcl2Node()
-: Node("emcl2_node"),
+EMcl2Node::EMcl2Node(const rclcpp::NodeOptions & options)
+: nav2_util::LifecycleNode("emcl2", "", options),
+  active_(false),
   init_pf_(false),
   init_request_(false),
   initialpose_receive_(false),
@@ -54,10 +55,76 @@ EMcl2Node::EMcl2Node()
 {
         // declare ros parameters
   declareParameter();
-  initCommunication();
 }
 
 EMcl2Node::~EMcl2Node() {}
+
+nav2_util::CallbackReturn EMcl2Node::on_configure(const rclcpp_lifecycle::State &)
+{
+  RCLCPP_INFO(get_logger(), "Configuring");
+  initCommunication();
+  initTF();
+  return nav2_util::CallbackReturn::SUCCESS;
+}
+
+nav2_util::CallbackReturn EMcl2Node::on_activate(const rclcpp_lifecycle::State &)
+{
+  RCLCPP_INFO(get_logger(), "Activating");
+  particlecloud_pub_->on_activate();
+  particle_cloud_pub_->on_activate();
+  pose_pub_->on_activate();
+  alpha_pub_->on_activate();
+  active_ = true;
+  // Bond with the lifecycle manager so it can supervise this node.
+  createBond();
+  return nav2_util::CallbackReturn::SUCCESS;
+}
+
+nav2_util::CallbackReturn EMcl2Node::on_deactivate(const rclcpp_lifecycle::State &)
+{
+  RCLCPP_INFO(get_logger(), "Deactivating");
+  active_ = false;
+  particlecloud_pub_->on_deactivate();
+  particle_cloud_pub_->on_deactivate();
+  pose_pub_->on_deactivate();
+  alpha_pub_->on_deactivate();
+  destroyBond();
+  return nav2_util::CallbackReturn::SUCCESS;
+}
+
+nav2_util::CallbackReturn EMcl2Node::on_cleanup(const rclcpp_lifecycle::State &)
+{
+  RCLCPP_INFO(get_logger(), "Cleaning up");
+  particlecloud_pub_.reset();
+  particle_cloud_pub_.reset();
+  pose_pub_.reset();
+  alpha_pub_.reset();
+  laser_scan_filter_.reset();
+  laser_scan_sub_.reset();
+  initial_pose_sub_.reset();
+  map_sub_.reset();
+  global_loc_srv_.reset();
+  reinit_global_loc_srv_.reset();
+  nomotion_update_srv_.reset();
+  set_initial_pose_srv_.reset();
+  tfb_.reset();
+  tfl_.reset();
+  tf_.reset();
+  pf_.reset();
+  init_pf_ = false;
+  scan_receive_ = false;
+  map_receive_ = false;
+  initialpose_receive_ = false;
+  init_request_ = false;
+  simple_reset_request_ = false;
+  return nav2_util::CallbackReturn::SUCCESS;
+}
+
+nav2_util::CallbackReturn EMcl2Node::on_shutdown(const rclcpp_lifecycle::State &)
+{
+  RCLCPP_INFO(get_logger(), "Shutting down");
+  return nav2_util::CallbackReturn::SUCCESS;
+}
 
 void EMcl2Node::declareParameter()
 {
@@ -102,7 +169,8 @@ void EMcl2Node::initCommunication(void)
 
   // Subscribe here, but connect the tf2 MessageFilter (and the cbScan callback)
   // in initTF() once the tf buffer exists.
-  laser_scan_sub_ = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::LaserScan>>(
+  laser_scan_sub_ = std::make_shared<
+    message_filters::Subscriber<sensor_msgs::msg::LaserScan, rclcpp_lifecycle::LifecycleNode>>(
           this, "scan", rmw_qos_profile_sensor_data);
   initial_pose_sub_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
           "initialpose", 2,
@@ -236,7 +304,7 @@ void EMcl2Node::receiveMap(const nav_msgs::msg::OccupancyGrid::ConstSharedPtr ms
 
 void EMcl2Node::cbScan(const sensor_msgs::msg::LaserScan::ConstSharedPtr msg)
 {
-  if (init_pf_) {
+  if (active_ && init_pf_) {
     scan_receive_ = true;
     scan_time_stamp_ = msg->header.stamp;
     scan_frame_id_ = msg->header.frame_id;
@@ -297,7 +365,7 @@ void EMcl2Node::cbNomotionUpdate(
   RCLCPP_INFO(get_logger(), "Run request_nomotion_update service");
   // emcl2 already runs one update per scan, so force an extra sensor update on
   // the latest scan by clearing the sequence guard and running the loop once.
-  if (init_pf_ && scan_receive_) {
+  if (active_ && init_pf_ && scan_receive_) {
     pf_->clearProcessedScan();
     loop();
   }
@@ -507,10 +575,7 @@ void EMcl2Node::cbSimpleReset(
 
 }  // namespace emcl2
 
-int main(int argc, char ** argv)
-{
-  rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<emcl2::EMcl2Node>());
-  rclcpp::shutdown();
-  return 0;
-}
+#include "rclcpp_components/register_node_macro.hpp"
+
+// Register the node so it can be loaded into a component container.
+RCLCPP_COMPONENTS_REGISTER_NODE(emcl2::EMcl2Node)

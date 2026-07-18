@@ -51,6 +51,8 @@ emcl2 localizing a TurtleBot3 driven by Nav2 through the `tb3_sandbox` world in 
 
 ### emcl2_node
 
+`emcl2_node` is a managed [lifecycle](https://design.ros2.org/articles/node_lifecycle.html) node (like `nav2_amcl`): it is inactive until a lifecycle manager configures and activates it, so `emcl2.launch.py` runs it under `nav2_lifecycle_manager` (`autostart: True`). It is also a composable component (`emcl2::EMcl2Node`) that can be loaded into a component container, and it bonds with the lifecycle manager while active.
+
 This node calculates the alpha value with a different algorithm than `emcl_node` in [ryuichiueda/emcl](https://github.com/ryuichiueda/emcl). This node counts the particles that make lasers penetrate occupancy cells. Specifically, this node chooses some particles at a rate of `extraction_rate` and checks each of them with the following procedure:
 
 * maps a set of laser scan on the occupancy grid map based on the pose of the particle

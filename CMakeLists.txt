@@ -28,16 +28,26 @@ ament_auto_add_library(emcl2_core STATIC
   src/Scan.cpp
   src/LikelihoodFieldMap.cpp
 )
+# emcl2_core is linked into the shared component library, so it must be PIC.
+set_target_properties(emcl2_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)
   target_link_libraries(emcl2_core OpenMP::OpenMP_CXX)
 endif()
 
-ament_auto_add_executable(emcl2_node
+# The node is built as a shared library so it can be loaded into a component
+# container, and the executable is a thin wrapper around it.
+ament_auto_add_library(emcl2_component SHARED
   src/emcl2_node.cpp
 )
-target_link_libraries(emcl2_node emcl2_core)
+target_link_libraries(emcl2_component emcl2_core)
+rclcpp_components_register_nodes(emcl2_component "emcl2::EMcl2Node")
+
+ament_auto_add_executable(emcl2_node
+  src/main.cpp
+)
+target_link_libraries(emcl2_node emcl2_component)
 
 option(BUILD_BENCHMARK "Build the micro benchmark" OFF)
 if(BUILD_BENCHMARK)
