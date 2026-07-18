@@ -28,6 +28,7 @@ in place of nav2's amcl.
 """
 
 import os
+import re
 import tempfile
 
 from ament_index_python.packages import get_package_share_directory
@@ -112,6 +113,18 @@ def generate_launch_description():
     urdf = os.path.join(sim_dir, 'urdf', 'turtlebot3_waffle.urdf')
     with open(urdf, 'r') as infp:
         robot_description = infp.read()
+
+    # turtlebot3_waffle.urdf points its meshes at models/<name>.dae, but the
+    # meshes actually live under models/turtlebot3_model/meshes/. Gazebo uses
+    # the (correct) SDF, so only RViz's RobotModel display hits this and reports
+    # "Errors loading geometries". Rewrite the mesh paths to the real location.
+    # The regex only matches meshes directly under models/, so it becomes a
+    # no-op once the upstream URDF is fixed.
+    robot_description = re.sub(
+        r'(package://nav2_minimal_tb3_sim/models/)([^/]+\.dae)',
+        r'\1turtlebot3_model/meshes/\2',
+        robot_description,
+    )
 
     start_robot_state_publisher_cmd = Node(
         condition=IfCondition(use_robot_state_pub),
