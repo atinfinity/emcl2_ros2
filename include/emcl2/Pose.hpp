@@ -15,32 +15,44 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#include "emcl2/OdomModel.hpp"
+#ifndef EMCL2__POSE_HPP_
+#define EMCL2__POSE_HPP_
 
-#include <stdlib.h>
-
-#include <cmath>
-#include <iostream>
+#include <sstream>
+#include <string>
+#include <cstdint>
 
 namespace emcl2
 {
-OdomModel::OdomModel(double ff, double fr, double rf, double rr)
-: fw_dev_(0.0), rot_dev_(0.0), engine_(seed_gen_()), std_norm_dist_(0.0, 1.0)
+
+class Pose
 {
-  fw_var_per_fw_ = ff * ff;
-  fw_var_per_rot_ = fr * fr;
-  rot_var_per_fw_ = rf * rf;
-  rot_var_per_rot_ = rr * rr;
-}
+public:
+  Pose()
+  {
+  }
+  Pose(double x, double y, double t);
+  Pose(const Pose & other);
 
-void OdomModel::setDev(double length, double angle)
-{
-  fw_dev_ = sqrt(fabs(length) * fw_var_per_fw_ + fabs(angle) * fw_var_per_rot_);
-  rot_dev_ = sqrt(fabs(length) * rot_var_per_fw_ + fabs(angle) * rot_var_per_rot_);
-}
+  void set(double x, double y, double t);
+  void set(const Pose & p);
+  std::string to_s(void);
 
-double OdomModel::drawFwNoise(void) {return std_norm_dist_(engine_) * fw_dev_;}
+  void normalizeAngle(void);
+  void move(
+    double length, double direction, double rotation, double fw_noise, double rot_noise);
 
-double OdomModel::drawRotNoise(void) {return std_norm_dist_(engine_) * rot_dev_;}
+  Pose operator-(const Pose & p) const;
+  Pose operator=(const Pose & p);
+
+  bool nearlyZero(void);
+
+  double x_, y_, t_;
+
+  uint16_t get16bitRepresentation(void);
+  static uint16_t get16bitRepresentation(double);
+};
 
 }  // namespace emcl2
+
+#endif  // EMCL2__POSE_HPP_

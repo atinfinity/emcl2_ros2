@@ -15,32 +15,44 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#include "emcl2/OdomModel.hpp"
+#ifndef EMCL2__LIKELIHOODFIELDMAP_HPP_
+#define EMCL2__LIKELIHOODFIELDMAP_HPP_
 
-#include <stdlib.h>
+#include <utility>
+#include <vector>
 
-#include <cmath>
-#include <iostream>
+#include <nav_msgs/msg/occupancy_grid.hpp>
+
+#include "emcl2/Pose.hpp"
+#include "emcl2/Scan.hpp"
 
 namespace emcl2
 {
-OdomModel::OdomModel(double ff, double fr, double rf, double rr)
-: fw_dev_(0.0), rot_dev_(0.0), engine_(seed_gen_()), std_norm_dist_(0.0, 1.0)
+class LikelihoodFieldMap
 {
-  fw_var_per_fw_ = ff * ff;
-  fw_var_per_rot_ = fr * fr;
-  rot_var_per_fw_ = rf * rf;
-  rot_var_per_rot_ = rr * rr;
-}
+public:
+  LikelihoodFieldMap(const nav_msgs::msg::OccupancyGrid & map, double likelihood_range);
+  ~LikelihoodFieldMap();
 
-void OdomModel::setDev(double length, double angle)
-{
-  fw_dev_ = sqrt(fabs(length) * fw_var_per_fw_ + fabs(angle) * fw_var_per_rot_);
-  rot_dev_ = sqrt(fabs(length) * rot_var_per_fw_ + fabs(angle) * rot_var_per_rot_);
-}
+  void setLikelihood(int x, int y, double range);
+  uint8_t likelihood(double x, double y);
 
-double OdomModel::drawFwNoise(void) {return std_norm_dist_(engine_) * fw_dev_;}
+  std::vector<uint8_t *> likelihoods_;
+  int width_;
+  int height_;
 
-double OdomModel::drawRotNoise(void) {return std_norm_dist_(engine_) * rot_dev_;}
+  double resolution_;
+  double origin_x_;
+  double origin_y_;
+
+  void drawFreePoses(int num, std::vector<Pose> & result);
+
+private:
+  std::vector<std::pair<int, int>> free_cells_;
+
+  void normalize(void);
+};
 
 }  // namespace emcl2
+
+#endif  // EMCL2__LIKELIHOODFIELDMAP_HPP_

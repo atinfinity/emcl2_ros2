@@ -1,14 +1,28 @@
+// Copyright 2022 Ryuichi Ueda ryuichiueda@gmail.com
 // SPDX-FileCopyrightText: 2022 Ryuichi Ueda ryuichiueda@gmail.com
 // SPDX-License-Identifier: LGPL-3.0-or-later
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#include "emcl2/ExpResetMcl2.h"
-
-#include <rclcpp/rclcpp.hpp>
+#include "emcl2/ExpResetMcl2.hpp"
 
 #include <stdlib.h>
 
 #include <cmath>
 #include <iostream>
+
+#include <rclcpp/rclcpp.hpp>
 
 namespace emcl2
 {
@@ -32,79 +46,83 @@ ExpResetMcl2::~ExpResetMcl2() {}
 
 void ExpResetMcl2::sensorUpdate(double lidar_x, double lidar_y, double lidar_t, bool inv)
 {
-	Scan scan;
-	scan = scan_;
+  Scan scan;
+  scan = scan_;
 
-	scan.lidar_pose_x_ = lidar_x;
-	scan.lidar_pose_y_ = lidar_y;
-	scan.lidar_pose_yaw_ = lidar_t;
+  scan.lidar_pose_x_ = lidar_x;
+  scan.lidar_pose_y_ = lidar_y;
+  scan.lidar_pose_yaw_ = lidar_t;
 
-	double origin = inv ? scan.angle_max_ : scan.angle_min_;
-	int sgn = inv ? -1 : 1;
-	for(size_t i = 0; i < scan.ranges_.size() ; i++) {
-		scan.directions_16bit_.push_back(Pose::get16bitRepresentation(
-			origin + sgn * i * scan.angle_increment_));
-	}
+  double origin = inv ? scan.angle_max_ : scan.angle_min_;
+  int sgn = inv ? -1 : 1;
+  for(size_t i = 0; i < scan.ranges_.size() ; i++) {
+    scan.directions_16bit_.push_back(Pose::get16bitRepresentation(
+                        origin + sgn * i * scan.angle_increment_));
+  }
 
-	double valid_pct = 0.0;
-	int valid_beams = scan.countValidBeams(&valid_pct);
-	if (valid_beams == 0) {
-		return;
-	}
+  double valid_pct = 0.0;
+  int valid_beams = scan.countValidBeams(&valid_pct);
+  if (valid_beams == 0) {
+    return;
+  }
 
-	for (auto & p : particles_) {
-		p.w_ *= p.likelihood(map_.get(), scan);
-	}
+  for (auto & p : particles_) {
+    p.w_ *= p.likelihood(map_.get(), scan);
+  }
 
-	alpha_ = nonPenetrationRate(static_cast<int>(particles_.size() * extraction_rate_), map_.get(), scan);
-	RCLCPP_INFO(rclcpp::get_logger("emcl2_node"), "ALPHA: %f / %f", alpha_, alpha_threshold_);
-	if (enable_expansion_resetting_ && alpha_ < alpha_threshold_) {
-		RCLCPP_INFO(rclcpp::get_logger("emcl2_node"), "RESET");
-		expansionReset();
-		for (auto & p : particles_) {
-			p.w_ *= p.likelihood(map_.get(), scan);
-		}
-	}
+  alpha_ = nonPenetrationRate(static_cast<int>(particles_.size() * extraction_rate_), map_.get(),
+      scan);
+  RCLCPP_INFO(rclcpp::get_logger("emcl2_node"), "ALPHA: %f / %f", alpha_, alpha_threshold_);
+  if (enable_expansion_resetting_ && alpha_ < alpha_threshold_) {
+    RCLCPP_INFO(rclcpp::get_logger("emcl2_node"), "RESET");
+    expansionReset();
+    for (auto & p : particles_) {
+      p.w_ *= p.likelihood(map_.get(), scan);
+    }
+  }
 
-	if (normalizeBelief() > 0.000001) {
-		resampling();
-	} else {
-		resetWeight();
-	}
+  if (normalizeBelief() > 0.000001) {
+    resampling();
+  } else {
+    resetWeight();
+  }
 
-	processed_seq_ = scan_.seq_;
+  processed_seq_ = scan_.seq_;
 }
 
 double ExpResetMcl2::nonPenetrationRate(int skip, LikelihoodFieldMap * map, Scan & scan)
 {
-	static uint16_t shift = 0;
-	int counter = 0;
-	int penetrating = 0;
-	for (size_t i = shift % skip; i < particles_.size(); i += skip) {
-		counter++;
-		if (particles_[i].wallConflict(map, scan, range_threshold_, sensor_reset_)) {
-			penetrating++;
-		}
-	}
-	shift++;
+  static uint16_t shift = 0;
+  int counter = 0;
+  int penetrating = 0;
+  for (size_t i = shift % skip; i < particles_.size(); i += skip) {
+    counter++;
+    if (particles_[i].wallConflict(map, scan, range_threshold_, sensor_reset_)) {
+      penetrating++;
+    }
+  }
+  shift++;
 
-	RCLCPP_INFO(rclcpp::get_logger("emcl2_node"), "%d %d", penetrating, counter);
-	return static_cast<double>((counter - penetrating)) / counter;
+  RCLCPP_INFO(rclcpp::get_logger("emcl2_node"), "%d %d", penetrating, counter);
+  return static_cast<double>((counter - penetrating)) / counter;
 }
 
 void ExpResetMcl2::expansionReset(void)
 {
-	for (auto & p : particles_) {
-		double length =
-		  2 * (static_cast<double>(rand()) / RAND_MAX - 0.5) * expansion_radius_position_;
-		double direction = 2 * (static_cast<double>(rand()) / RAND_MAX - 0.5) * M_PI;
+  for (auto & p : particles_) {
+    double length =
+      // NOLINTNEXTLINE(runtime/threadsafe_fn)
+      2 * (static_cast<double>(rand()) / RAND_MAX - 0.5) * expansion_radius_position_;
+    // NOLINTNEXTLINE(runtime/threadsafe_fn)
+    double direction = 2 * (static_cast<double>(rand()) / RAND_MAX - 0.5) * M_PI;
 
-		p.p_.x_ += length * cos(direction);
-		p.p_.y_ += length * sin(direction);
-		p.p_.t_ += 2 * (static_cast<double>(rand()) / RAND_MAX - 0.5) *
-			   expansion_radius_orientation_;
-		p.w_ = 1.0 / particles_.size();
-	}
+    p.p_.x_ += length * cos(direction);
+    p.p_.y_ += length * sin(direction);
+    // NOLINTNEXTLINE(runtime/threadsafe_fn)
+    p.p_.t_ += 2 * (static_cast<double>(rand()) / RAND_MAX - 0.5) *
+      expansion_radius_orientation_;
+    p.w_ = 1.0 / particles_.size();
+  }
 }
 
 }  // namespace emcl2
