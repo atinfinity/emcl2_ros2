@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 15
     container: osrf/ros:jazzy-desktop-full
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build
         run: |
           mkdir -p /root/ros2_ws/src
