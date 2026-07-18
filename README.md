@@ -75,6 +75,7 @@ This node also has a sensor resetting algorithm. When `sensor_reset` is true, a 
 | ------------- | --------------------------------------- | --------------------------------------------------------------------------------------- | 
 | `mcl_pose`      | [`geometry_msgs/PoseWithCovarianceStamped`](http://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseWithCovarianceStamped.html) | the mean pose of the particles with covariance                                          | 
 | `particlecloud` | [`geometry_msgs/PoseArray`](http://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseArray.html)                 | poses of the particles                                                                  | 
+| `particle_cloud` | [`nav2_msgs/ParticleCloud`](https://docs.ros.org/en/jazzy/p/nav2_msgs/interfaces/msg/ParticleCloud.html)                 | poses and weights of the particles (compatible with the nav2 RViz plugin)               | 
 | `tf`            | [`tf/tfMessage`](http://docs.ros.org/en/noetic/api/tf/html/msg/tfMessage.html)                            | the transform from odom (which can be remapped via the odom_frame_id parameter) to map | 
 | `alpha`         | [`std_msgs/Float32`](http://docs.ros.org/en/noetic/api/std_msgs/html/msg/Float32.html)                        | marginal likelihood of particles after sensor update                                    | 
 

@@ -96,6 +96,7 @@ void EMcl2Node::declareParameter()
 void EMcl2Node::initCommunication(void)
 {
   particlecloud_pub_ = create_publisher<geometry_msgs::msg::PoseArray>("particlecloud", 2);
+  particle_cloud_pub_ = create_publisher<nav2_msgs::msg::ParticleCloud>("particle_cloud", 2);
   pose_pub_ = create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("mcl_pose", 2);
   alpha_pub_ = create_publisher<std_msgs::msg::Float32>("alpha", 2);
 
@@ -424,6 +425,12 @@ void EMcl2Node::publishParticles(void)
   cloud_msg.header.frame_id = global_frame_id_;
   cloud_msg.poses.resize(pf_->particles_.size());
 
+  // nav2_msgs/ParticleCloud carries per-particle weights and is what the nav2
+  // RViz plugin subscribes to; the PoseArray is kept for backward compatibility.
+  nav2_msgs::msg::ParticleCloud particle_cloud_msg;
+  particle_cloud_msg.header = cloud_msg.header;
+  particle_cloud_msg.particles.resize(pf_->particles_.size());
+
   for (size_t i = 0; i < pf_->particles_.size(); i++) {
     cloud_msg.poses[i].position.x = pf_->particles_[i].p_.x_;
     cloud_msg.poses[i].position.y = pf_->particles_[i].p_.y_;
@@ -432,8 +439,12 @@ void EMcl2Node::publishParticles(void)
     tf2::Quaternion q;
     q.setRPY(0, 0, pf_->particles_[i].p_.t_);
     tf2::convert(q, cloud_msg.poses[i].orientation);
+
+    particle_cloud_msg.particles[i].pose = cloud_msg.poses[i];
+    particle_cloud_msg.particles[i].weight = pf_->particles_[i].w_;
   }
   particlecloud_pub_->publish(cloud_msg);
+  particle_cloud_pub_->publish(particle_cloud_msg);
 }
 
 bool EMcl2Node::getOdomPose(double & x, double & y, double & yaw)
