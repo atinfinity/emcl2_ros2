@@ -48,7 +48,6 @@ public:
   ~EMcl2Node();
 
   void loop(void);
-  int getOdomFreq(void);
 
 private:
   std::shared_ptr<ExpResetMcl2> pf_;
@@ -77,7 +76,7 @@ private:
 
   tf2::Transform latest_tf_;
 
-  rclcpp::Clock ros_clock_;
+  rclcpp::TimerBase::SharedPtr loop_timer_;
 
   int odom_freq_;
   bool init_pf_;

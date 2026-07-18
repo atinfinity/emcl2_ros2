@@ -71,6 +71,8 @@ bool Particle::wallConflict(LikelihoodFieldMap * map, Scan & scan, double thresh
   }
 
   int hit_counter = 0;
+  double hit_lx1 = 0.0, hit_ly1 = 0.0, r1 = 0.0;
+  uint16_t a1 = 0;
   for (int i : order) {
     if (!scan.valid(scan.ranges_[i])) {
       continue;
@@ -80,8 +82,6 @@ bool Particle::wallConflict(LikelihoodFieldMap * map, Scan & scan, double thresh
     uint16_t a = scan.directions_16bit_[i] + t + lidar_yaw;
 
     double hit_lx = 0.0, hit_ly = 0.0;
-    double hit_lx1 = 0.0, hit_ly1 = 0.0, r1 = 0.0;
-    uint16_t a1 = 0;
     if (isPenetrating(lidar_x, lidar_y, range, a, map, hit_lx, hit_ly)) {
       if (hit_counter == 0) {
         hit_lx1 = hit_lx;

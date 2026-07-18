@@ -238,7 +238,7 @@ void Mcl::setScan(const sensor_msgs::msg::LaserScan::ConstSharedPtr msg)
     scan_.ranges_.resize(msg->ranges.size());
   }
 
-  scan_.seq_ = msg->header.stamp.sec;
+  scan_.seq_++;
   for (size_t i = 0; i < msg->ranges.size(); i++) {
     scan_.ranges_[i] = msg->ranges[i];
   }

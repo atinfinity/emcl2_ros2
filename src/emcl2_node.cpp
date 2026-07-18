@@ -28,6 +28,7 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <chrono>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -44,7 +45,6 @@ namespace emcl2
 {
 EMcl2Node::EMcl2Node()
 : Node("emcl2_node"),
-  ros_clock_(RCL_SYSTEM_TIME),
   init_pf_(false),
   init_request_(false),
   initialpose_receive_(false),
@@ -101,7 +101,8 @@ void EMcl2Node::initCommunication(void)
   alpha_pub_ = create_publisher<std_msgs::msg::Float32>("alpha", 2);
 
   laser_scan_sub_ = create_subscription<sensor_msgs::msg::LaserScan>(
-          "scan", 2, std::bind(&EMcl2Node::cbScan, this, std::placeholders::_1));
+          "scan", rclcpp::SensorDataQoS(),
+          std::bind(&EMcl2Node::cbScan, this, std::placeholders::_1));
   initial_pose_sub_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
           "initialpose", 2,
           std::bind(&EMcl2Node::initialPoseReceived, this, std::placeholders::_1));
@@ -121,6 +122,10 @@ void EMcl2Node::initCommunication(void)
   this->get_parameter("odom_freq", odom_freq_);
 
   this->get_parameter("transform_tolerance", transform_tolerance_);
+
+  loop_timer_ = create_timer(
+          std::chrono::duration<double>(1.0 / odom_freq_),
+          std::bind(&EMcl2Node::loop, this));
 }
 
 void EMcl2Node::initTF(void)
@@ -302,7 +307,7 @@ void EMcl2Node::publishPose(
 {
   geometry_msgs::msg::PoseWithCovarianceStamped p;
   p.header.frame_id = global_frame_id_;
-  p.header.stamp = ros_clock_.now();
+  p.header.stamp = now();
   p.pose.pose.position.x = x;
   p.pose.pose.position.y = y;
   p.pose.covariance[6 * 0 + 0] = x_dev;
@@ -356,7 +361,7 @@ void EMcl2Node::publishOdomFrame(double x, double y, double t)
 void EMcl2Node::publishParticles(void)
 {
   geometry_msgs::msg::PoseArray cloud_msg;
-  cloud_msg.header.stamp = ros_clock_.now();
+  cloud_msg.header.stamp = now();
   cloud_msg.header.frame_id = global_frame_id_;
   cloud_msg.poses.resize(pf_->particles_.size());
 
@@ -398,7 +403,7 @@ bool EMcl2Node::getLidarPose(double & x, double & y, double & yaw, bool & inv)
 {
   geometry_msgs::msg::PoseStamped ident;
   ident.header.frame_id = scan_frame_id_;
-  ident.header.stamp = ros_clock_.now();
+  ident.header.stamp = rclcpp::Time(0);
   tf2::toMsg(tf2::Transform::getIdentity(), ident.pose);
 
   geometry_msgs::msg::PoseStamped lidar_pose;
@@ -420,8 +425,6 @@ bool EMcl2Node::getLidarPose(double & x, double & y, double & yaw, bool & inv)
   return true;
 }
 
-int EMcl2Node::getOdomFreq(void) {return odom_freq_;}
-
 bool EMcl2Node::cbSimpleReset(
   const std_srvs::srv::Empty::Request::ConstSharedPtr, std_srvs::srv::Empty::Response::SharedPtr)
 {
@@ -433,13 +436,7 @@ bool EMcl2Node::cbSimpleReset(
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<emcl2::EMcl2Node>();
-  rclcpp::Rate loop_rate(node->getOdomFreq());
-  while (rclcpp::ok()) {
-    node->loop();
-    rclcpp::spin_some(node);
-    loop_rate.sleep();
-  }
+  rclcpp::spin(std::make_shared<emcl2::EMcl2Node>());
   rclcpp::shutdown();
   return 0;
 }

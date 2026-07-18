@@ -46,6 +46,10 @@ ExpResetMcl2::~ExpResetMcl2() {}
 
 void ExpResetMcl2::sensorUpdate(double lidar_x, double lidar_y, double lidar_t, bool inv)
 {
+  if (processed_seq_ == scan_.seq_) {
+    return;
+  }
+
   Scan scan;
   scan = scan_;
 
@@ -72,7 +76,7 @@ void ExpResetMcl2::sensorUpdate(double lidar_x, double lidar_y, double lidar_t, 
 
   alpha_ = nonPenetrationRate(static_cast<int>(particles_.size() * extraction_rate_), map_.get(),
       scan);
-  RCLCPP_INFO(rclcpp::get_logger("emcl2_node"), "ALPHA: %f / %f", alpha_, alpha_threshold_);
+  RCLCPP_DEBUG(rclcpp::get_logger("emcl2_node"), "ALPHA: %f / %f", alpha_, alpha_threshold_);
   if (enable_expansion_resetting_ && alpha_ < alpha_threshold_) {
     RCLCPP_INFO(rclcpp::get_logger("emcl2_node"), "RESET");
     expansionReset();
@@ -107,7 +111,7 @@ double ExpResetMcl2::nonPenetrationRate(int skip, LikelihoodFieldMap * map, Scan
   }
   shift++;
 
-  RCLCPP_INFO(rclcpp::get_logger("emcl2_node"), "%d %d", penetrating, counter);
+  RCLCPP_DEBUG(rclcpp::get_logger("emcl2_node"), "%d %d", penetrating, counter);
   return static_cast<double>((counter - penetrating)) / counter;
 }
 
