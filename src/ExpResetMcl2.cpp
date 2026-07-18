@@ -17,10 +17,9 @@
 
 #include "emcl2/ExpResetMcl2.hpp"
 
-#include <stdlib.h>
-
 #include <cmath>
 #include <iostream>
+#include <random>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -117,18 +116,14 @@ double ExpResetMcl2::nonPenetrationRate(int skip, LikelihoodFieldMap * map, Scan
 
 void ExpResetMcl2::expansionReset(void)
 {
+  std::uniform_real_distribution<double> ud(-1.0, 1.0);
   for (auto & p : particles_) {
-    double length =
-      // NOLINTNEXTLINE(runtime/threadsafe_fn)
-      2 * (static_cast<double>(rand()) / RAND_MAX - 0.5) * expansion_radius_position_;
-    // NOLINTNEXTLINE(runtime/threadsafe_fn)
-    double direction = 2 * (static_cast<double>(rand()) / RAND_MAX - 0.5) * M_PI;
+    double length = ud(rng_) * expansion_radius_position_;
+    double direction = ud(rng_) * M_PI;
 
     p.p_.x_ += length * cos(direction);
     p.p_.y_ += length * sin(direction);
-    // NOLINTNEXTLINE(runtime/threadsafe_fn)
-    p.p_.t_ += 2 * (static_cast<double>(rand()) / RAND_MAX - 0.5) *
-      expansion_radius_orientation_;
+    p.p_.t_ += ud(rng_) * expansion_radius_orientation_;
     p.w_ = 1.0 / particles_.size();
   }
 }

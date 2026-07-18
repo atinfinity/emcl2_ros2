@@ -134,14 +134,13 @@ void LikelihoodFieldMap::drawFreePoses(int num, std::vector<Pose> & result)
 
   sample(free_cells_.begin(), free_cells_.end(), back_inserter(chosen_cells), num, engine);
 
+  std::uniform_real_distribution<double> offset(0.0, resolution_);
+  std::uniform_real_distribution<double> angle(-M_PI, M_PI);
   for (auto & c : chosen_cells) {
     Pose p;
-    // NOLINTNEXTLINE(runtime/threadsafe_fn)
-    p.x_ = c.first * resolution_ + resolution_ * rand() / RAND_MAX + origin_x_;
-    // NOLINTNEXTLINE(runtime/threadsafe_fn)
-    p.y_ = c.second * resolution_ + resolution_ * rand() / RAND_MAX + origin_y_;
-    // NOLINTNEXTLINE(runtime/threadsafe_fn)
-    p.t_ = 2 * M_PI * rand() / RAND_MAX - M_PI;
+    p.x_ = c.first * resolution_ + offset(engine) + origin_x_;
+    p.y_ = c.second * resolution_ + offset(engine) + origin_y_;
+    p.t_ = angle(engine);
     result.push_back(p);
   }
 }

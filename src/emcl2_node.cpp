@@ -205,8 +205,14 @@ void EMcl2Node::receiveMap(const nav_msgs::msg::OccupancyGrid::ConstSharedPtr ms
   map_ = *msg;
   map_receive_ = true;
   RCLCPP_INFO(get_logger(), "Received map.");
-  initPF();
-  initTF();
+  if (!init_pf_) {
+    initPF();
+    initTF();
+  } else {
+    // keep the current particle distribution; only rebuild the likelihood field
+    pf_->setMap(initMap());
+    RCLCPP_INFO(get_logger(), "Updated likelihood field map.");
+  }
 }
 
 void EMcl2Node::cbScan(const sensor_msgs::msg::LaserScan::ConstSharedPtr msg)
@@ -259,6 +265,13 @@ void EMcl2Node::loop(void)
     } else if (simple_reset_request_) {
       pf_->simpleReset();
       simple_reset_request_ = false;
+    }
+
+    if (!scan_receive_) {
+      RCLCPP_WARN_THROTTLE(
+                          get_logger(), *get_clock(), 2000,
+                          "Not yet received scan. Therefore, MCL cannot be updated.");
+      return;
     }
 
     double x, y, t;

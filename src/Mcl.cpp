@@ -16,10 +16,9 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "emcl2/Mcl.hpp"
 
-#include <stdlib.h>
-
 #include <cmath>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 
 #include <rclcpp/rclcpp.hpp>
@@ -70,8 +69,8 @@ void Mcl::resampling(void)
 
   std::vector<Particle> old(particles_);
 
-  // NOLINTNEXTLINE(runtime/threadsafe_fn)
-  double start = static_cast<double>(rand()) / (RAND_MAX * particles_.size());
+  std::uniform_real_distribution<double> ud(0.0, 1.0);
+  double start = ud(rng_) / particles_.size();
   double step = 1.0 / particles_.size();
 
   std::vector<int> chosen;
@@ -81,8 +80,9 @@ void Mcl::resampling(void)
     while (accum[tick] <= start + i * step) {
       tick++;
       if (tick == particles_.size()) {
-        RCLCPP_ERROR(rclcpp::get_logger("emcl2_node"), "RESAMPLING FAILED");
-        exit(1);
+        // floating point rounding can push the target beyond accum.back()
+        tick = particles_.size() - 1;
+        break;
       }
     }
     chosen.push_back(tick);
@@ -91,55 +91,6 @@ void Mcl::resampling(void)
   for (size_t i = 0; i < particles_.size(); i++) {
     particles_[i] = old[chosen[i]];
   }
-}
-
-void Mcl::sensorUpdate(double lidar_x, double lidar_y, double lidar_t, bool inv)
-{
-  if (processed_seq_ == scan_.seq_) {
-    return;
-  }
-
-  Scan scan;
-  int seq = -1;
-  while (seq != scan_.seq_) {        // trying to copy the latest scan before next
-    seq = scan_.seq_;
-    scan = scan_;
-  }
-
-  scan.lidar_pose_x_ = lidar_x;
-  scan.lidar_pose_y_ = lidar_y;
-  scan.lidar_pose_yaw_ = lidar_t;
-
-  int i = 0;
-  if (!inv) {
-    for ([[maybe_unused]] auto & _ : scan.ranges_) {
-      scan.directions_16bit_.push_back(Pose::get16bitRepresentation(
-                          scan.angle_min_ + (i++) * scan.angle_increment_));
-    }
-  } else {
-    for ([[maybe_unused]] auto & _ : scan.ranges_) {
-      scan.directions_16bit_.push_back(Pose::get16bitRepresentation(
-                          scan.angle_max_ - (i++) * scan.angle_increment_));
-    }
-  }
-
-  double valid_pct = 0.0;
-  int valid_beams = scan.countValidBeams(&valid_pct);
-  if (valid_beams == 0) {
-    return;
-  }
-
-  for (auto & p : particles_) {
-    p.w_ *= p.likelihood(map_.get(), scan);
-  }
-
-  if (normalizeBelief() > 0.000001) {
-    resampling();
-  } else {
-    resetWeight();
-  }
-
-  processed_seq_ = scan_.seq_;
 }
 
 void Mcl::motionUpdate(double x, double y, double t)
@@ -203,9 +154,10 @@ void Mcl::meanPose(
     t_mean = normalizeAngle(t2_mean - M_PI);
   }
 
-  x_dev = xx / (particles_.size() - 1);
-  y_dev = yy / (particles_.size() - 1);
-  t_dev = tt / (particles_.size() - 1);
+  size_t denom = particles_.size() > 1 ? particles_.size() - 1 : 1;
+  x_dev = xx / denom;
+  y_dev = yy / denom;
+  t_dev = tt / denom;
 
   double xy, yt, tx;
   xy = yt = tx = 0.0;
@@ -215,9 +167,9 @@ void Mcl::meanPose(
     tx += (p.p_.x_ - x_mean) * (normalizeAngle(p.p_.t_ - t_mean));
   }
 
-  xy_cov = xy / (particles_.size() - 1);
-  yt_cov = yt / (particles_.size() - 1);
-  tx_cov = tx / (particles_.size() - 1);
+  xy_cov = xy / denom;
+  yt_cov = yt / denom;
+  tx_cov = tx / denom;
 }
 
 double Mcl::normalizeAngle(double t)
@@ -247,6 +199,8 @@ void Mcl::setScan(const sensor_msgs::msg::LaserScan::ConstSharedPtr msg)
   scan_.angle_max_ = msg->angle_max;
   scan_.angle_increment_ = msg->angle_increment;
 }
+
+void Mcl::setMap(const std::shared_ptr<LikelihoodFieldMap> & map) {map_ = map;}
 
 double Mcl::normalizeBelief(void)
 {

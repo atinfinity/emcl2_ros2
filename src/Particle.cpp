@@ -18,6 +18,8 @@
 #include "emcl2/Particle.hpp"
 
 #include <cmath>
+#include <random>
+#include <vector>
 
 #include "emcl2/Mcl.hpp"
 
@@ -58,9 +60,9 @@ bool Particle::wallConflict(LikelihoodFieldMap * map, Scan & scan, double thresh
     p_.y_ + scan.lidar_pose_x_ * Mcl::sin_[t] + scan.lidar_pose_y_ * Mcl::cos_[t];
   uint16_t lidar_yaw = Pose::get16bitRepresentation(scan.lidar_pose_yaw_);
 
+  static thread_local std::mt19937 rng {std::random_device{}()};
   std::vector<int> order;
-  // NOLINTNEXTLINE(runtime/threadsafe_fn)
-  if (rand() % 2) {
+  if (rng() % 2) {
     for (size_t i = 0; i < scan.ranges_.size(); i += scan.scan_increment_) {
       order.push_back(i);
     }

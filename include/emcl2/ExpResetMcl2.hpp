@@ -36,7 +36,7 @@ public:
     bool enable_expansion_resetting);
   ~ExpResetMcl2();
 
-  void sensorUpdate(double lidar_x, double lidar_y, double lidar_t, bool inv);
+  void sensorUpdate(double lidar_x, double lidar_y, double lidar_t, bool inv) override;
 
 private:
   double alpha_threshold_;

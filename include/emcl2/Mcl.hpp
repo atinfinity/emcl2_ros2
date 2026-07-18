@@ -42,17 +42,18 @@ public:
     const Pose & p, int num, const Scan & scan,
     const std::shared_ptr<OdomModel> & odom_model,
     const std::shared_ptr<LikelihoodFieldMap> & map);
-  ~Mcl();
+  virtual ~Mcl();
 
   std::vector<Particle> particles_;
   double alpha_;
 
-  void sensorUpdate(double lidar_x, double lidar_y, double lidar_t, bool inv);
+  virtual void sensorUpdate(double lidar_x, double lidar_y, double lidar_t, bool inv) = 0;
   void motionUpdate(double x, double y, double t);
 
   void initialize(double x, double y, double t);
 
   void setScan(const sensor_msgs::msg::LaserScan::ConstSharedPtr msg);
+  void setMap(const std::shared_ptr<LikelihoodFieldMap> & map);
   void meanPose(
     double & x_mean, double & y_mean, double & t_mean, double & x_var, double & y_var,
     double & t_var, double & xy_cov, double & yt_cov, double & tx_cov);
@@ -68,6 +69,8 @@ protected:
 
   Scan scan_;
   int processed_seq_;
+
+  std::mt19937 rng_ {std::random_device{}()};
 
   double normalizeAngle(double t);
   void resampling(void);
