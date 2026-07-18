@@ -66,7 +66,6 @@ void EMcl2Node::declareParameter()
   this->declare_parameter("odom_frame_id", std::string("odom"));
   this->declare_parameter("base_frame_id", std::string("base_link"));
 
-  this->declare_parameter("odom_freq", 20);
   this->declare_parameter("transform_tolerance", 0.2);
 
   this->declare_parameter("laser_min_range", 0.0);
@@ -100,9 +99,10 @@ void EMcl2Node::initCommunication(void)
   pose_pub_ = create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("mcl_pose", 2);
   alpha_pub_ = create_publisher<std_msgs::msg::Float32>("alpha", 2);
 
-  laser_scan_sub_ = create_subscription<sensor_msgs::msg::LaserScan>(
-          "scan", rclcpp::SensorDataQoS(),
-          std::bind(&EMcl2Node::cbScan, this, std::placeholders::_1));
+  // Subscribe here, but connect the tf2 MessageFilter (and the cbScan callback)
+  // in initTF() once the tf buffer exists.
+  laser_scan_sub_ = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::LaserScan>>(
+          this, "scan", rmw_qos_profile_sensor_data);
   initial_pose_sub_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
           "initialpose", 2,
           std::bind(&EMcl2Node::initialPoseReceived, this, std::placeholders::_1));
@@ -119,13 +119,11 @@ void EMcl2Node::initCommunication(void)
   this->get_parameter("odom_frame_id", odom_frame_id_);
   this->get_parameter("base_frame_id", base_frame_id_);
 
-  this->get_parameter("odom_freq", odom_freq_);
-
   this->get_parameter("transform_tolerance", transform_tolerance_);
 
-  loop_timer_ = create_timer(
-          std::chrono::duration<double>(1.0 / odom_freq_),
-          std::bind(&EMcl2Node::loop, this));
+  // The update runs once per laser scan (see cbScan), so no periodic timer is
+  // needed. Driving it from the scan keeps motionUpdate() and sensorUpdate()
+  // consistent with the scan's timestamp and processes every scan exactly once.
 }
 
 void EMcl2Node::initTF(void)
@@ -142,6 +140,14 @@ void EMcl2Node::initTF(void)
   tfl_ = std::make_shared<tf2_ros::TransformListener>(*tf_);
   tfb_ = std::make_shared<tf2_ros::TransformBroadcaster>(shared_from_this());
   latest_tf_ = tf2::Transform::getIdentity();
+
+  // Hold each scan until odom->base at its timestamp is available, then run the
+  // update. buffer_timeout bounds how long a scan waits before it is dropped.
+  laser_scan_filter_ = std::make_shared<tf2_ros::MessageFilter<sensor_msgs::msg::LaserScan>>(
+          *laser_scan_sub_, *tf_, odom_frame_id_, 10, get_node_logging_interface(),
+          get_node_clock_interface(), tf2::durationFromSec(transform_tolerance_));
+  laser_scan_filter_->registerCallback(
+          std::bind(&EMcl2Node::cbScan, this, std::placeholders::_1));
 }
 
 void EMcl2Node::initPF(void)
@@ -222,6 +228,7 @@ void EMcl2Node::cbScan(const sensor_msgs::msg::LaserScan::ConstSharedPtr msg)
     scan_time_stamp_ = msg->header.stamp;
     scan_frame_id_ = msg->header.frame_id;
     pf_->setScan(msg);
+    loop();  // run one motion + sensor update per scan
   }
 }
 

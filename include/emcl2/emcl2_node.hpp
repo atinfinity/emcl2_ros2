@@ -19,8 +19,10 @@
 #ifndef EMCL2__EMCL2_NODE_HPP_
 #define EMCL2__EMCL2_NODE_HPP_
 
+#include <message_filters/subscriber.h>
 #include <tf2/LinearMath/Transform.h>
 #include <tf2_ros/buffer.h>
+#include <tf2_ros/message_filter.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
@@ -55,7 +57,11 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr particlecloud_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_pub_;
   rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr alpha_pub_;
-  rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_scan_sub_;
+  // The scan is fed through a tf2 MessageFilter so the callback only fires once
+  // the odom->base transform at the scan's timestamp is available. Processing the
+  // scan directly would race the transform and drop most updates.
+  std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::LaserScan>> laser_scan_sub_;
+  std::shared_ptr<tf2_ros::MessageFilter<sensor_msgs::msg::LaserScan>> laser_scan_filter_;
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
     initial_pose_sub_;
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_sub_;
@@ -76,9 +82,6 @@ private:
 
   tf2::Transform latest_tf_;
 
-  rclcpp::TimerBase::SharedPtr loop_timer_;
-
-  int odom_freq_;
   bool init_pf_;
   bool init_request_;
   bool initialpose_receive_;

@@ -82,7 +82,6 @@ This node also has a sensor resetting algorithm. When `sensor_reset` is true, a 
 
 | Name                          | Type    | Default    | Description                                                        |
 |-------------------------------|---------|------------|--------------------------------------------------------------------|
-| `odom_freq`                    | `int`     | 20 [Hz]    | frequency of odometry update                                       |
 | `num_particles`                | `int`     | 500       | number of particles                                                |
 | `odom_frame_id`                | `string`  | "odom"     | the frame for odometry                                             |
 | `footprint_frame_id`           | `string`  | "base_footprint" | the frame of the localized robot's base                    |

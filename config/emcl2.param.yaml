@@ -1,6 +1,5 @@
 /**:
   ros__parameters:
-    odom_freq: 20
     transform_tolerance: 0.2
     global_frame_id: "map"
     odom_frame_id: "odom"
