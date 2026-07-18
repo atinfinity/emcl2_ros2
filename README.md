@@ -14,24 +14,30 @@ This package is ROS 2 version of [ryuichiueda/emcl2](https://github.com/ryuichiu
 
 ### Install & Build
 ```
-mkdir ros2_ws && cd ros2_ws
-git clone git@github.com:CIT-Autonomous-Robot-Lab/emcl2_ros2.git ./src/emcl2_ros2
+mkdir -p ros2_ws/src && cd ros2_ws
+git clone https://github.com/atinfinity/emcl2_ros2.git ./src/emcl2_ros2
 rosdep update
 rosdep install -y --from-paths src --ignore-src --rosdistro $ROS_DISTRO
-sudo apt install -y ros-$ROS_DISTRO-navigation2 ros-$ROS_DISTRO-nav2-bringup ros-$ROS_DISTRO-turtlebot3-gazebo
+sudo apt install -y ros-$ROS_DISTRO-navigation2 ros-$ROS_DISTRO-nav2-bringup ros-$ROS_DISTRO-nav2-minimal-tb3-sim
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 source install/setup.bash
 ```
 
 ### Try emcl2 in simulator
 
-You may wait Gazebo to be initilalized. You can also use `./test/demo.bash`, in which the following procedure is written. 
+The demo uses the `tb3_sandbox` world from [`nav2_minimal_tb3_sim`](https://github.com/ros-navigation/nav2_minimal_turtlebot_simulation/tree/jazzy/nav2_minimal_tb3_sim). Run each command in a separate terminal (source `install/setup.bash` in every terminal first) and wait for Gazebo to finish initializing before starting the others. You can also use `./test/demo.bash`, in which the following procedure is written.
 
 ```
-export TURTLEBOT3_MODEL=burger
-ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py
-ros2 launch nav2_bringup rviz_launch.py
-ros2 launch emcl2 emcl2.launch.py params_file:=$(ros2 pkg prefix --share emcl2)/config/emcl2_quick_start.param.yaml map:=$(ros2 pkg prefix --share nav2_bringup)/maps/turtlebot3_world.yaml use_sim_time:=true
+# 1. Gazebo simulator (world + TurtleBot3 + robot_state_publisher)
+ros2 launch emcl2 sim.launch.py
+
+# 2. RViz (emcl2 config: shows the robot model and particle cloud)
+ros2 launch nav2_bringup rviz_launch.py rviz_config:=$(ros2 pkg prefix --share emcl2)/rviz/emcl2.rviz
+
+# 3. emcl2 (localization; replaces amcl)
+ros2 launch emcl2 emcl2.launch.py params_file:=$(ros2 pkg prefix --share emcl2)/config/emcl2_quick_start.param.yaml map:=$(ros2 pkg prefix --share nav2_bringup)/maps/tb3_sandbox.yaml use_sim_time:=true
+
+# 4. Navigation (without localization; emcl2 provides the map->odom transform)
 ros2 launch nav2_bringup navigation_launch.py use_sim_time:=true
 ```
 
