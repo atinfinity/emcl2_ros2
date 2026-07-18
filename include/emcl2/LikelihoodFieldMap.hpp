@@ -34,13 +34,26 @@ public:
   LikelihoodFieldMap(const nav_msgs::msg::OccupancyGrid & map, double likelihood_range);
 
   void setLikelihood(int x, int y, double range);
-  uint8_t likelihood(double x, double y);
+
+  // Hot path: called for every beam endpoint of every particle. Kept inline,
+  // multiplication instead of division, no floor() call. The bounds check is
+  // done on the doubles so negative coordinates cannot alias into cell zero.
+  uint8_t likelihood(double x, double y) const
+  {
+    double fx = (x - origin_x_) * inv_resolution_;
+    double fy = (y - origin_y_) * inv_resolution_;
+    if (fx < 0.0 || fy < 0.0 || fx >= width_ || fy >= height_) {
+      return 0;
+    }
+    return likelihoods_[static_cast<int>(fx) + static_cast<int>(fy) * width_];
+  }
 
   std::vector<uint8_t> likelihoods_;
   int width_;
   int height_;
 
   double resolution_;
+  double inv_resolution_;
   double origin_x_;
   double origin_y_;
 

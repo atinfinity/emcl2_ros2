@@ -124,11 +124,13 @@ TEST(LikelihoodFieldMapTest, likelihoodFieldAroundWall)
   grid.data[5 + 5 * 10] = 100;  // wall at cell (5, 5)
   emcl2::LikelihoodFieldMap map(grid, 0.2);
 
-  EXPECT_EQ(map.likelihood(0.55, 0.55), 255);  // on the wall
-  EXPECT_EQ(map.likelihood(0.55, 0.65), 127);  // one cell away
-  EXPECT_EQ(map.likelihood(0.55, 0.75), 0);    // two cells away (weight 0)
-  EXPECT_EQ(map.likelihood(-0.5, -0.5), 0);    // out of the map
-  EXPECT_EQ(map.likelihood(5.0, 5.0), 0);      // out of the map
+  EXPECT_EQ(map.likelihood(0.55, 0.55), 255);   // on the wall
+  EXPECT_EQ(map.likelihood(0.55, 0.65), 127);   // one cell away
+  EXPECT_EQ(map.likelihood(0.55, 0.75), 0);     // two cells away (weight 0)
+  EXPECT_EQ(map.likelihood(-0.5, -0.5), 0);     // out of the map
+  EXPECT_EQ(map.likelihood(5.0, 5.0), 0);       // out of the map
+  EXPECT_EQ(map.likelihood(-0.01, 0.55), 0);    // just below origin must not alias into cell 0
+  EXPECT_EQ(map.likelihood(0.55, -0.01), 0);    // same for y
 }
 
 TEST(LikelihoodFieldMapTest, zeroLikelihoodRangeDoesNotProduceNan)
