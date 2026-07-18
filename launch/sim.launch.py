@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Launch a minimal TurtleBot3 Gazebo simulation for the emcl2 demo.
+"""
+Launch a minimal TurtleBot3 Gazebo simulation for the emcl2 demo.
 
 This brings up only the simulator (Gazebo world, robot, ros_gz bridge and
 robot_state_publisher) using ``nav2_minimal_tb3_sim``. Localization (emcl2)
