@@ -108,8 +108,7 @@ private:
   nav_msgs::msg::OccupancyGrid map_;
 
   void cbScan(const sensor_msgs::msg::LaserScan::ConstSharedPtr msg);
-  // bool cbSimpleReset(std_srvs::Empty::Request & req, std_srvs::Empty::Response & res);
-  bool cbSimpleReset(
+  void cbSimpleReset(
     const std_srvs::srv::Empty::Request::ConstSharedPtr,
     std_srvs::srv::Empty::Response::SharedPtr);
   void initialPoseReceived(

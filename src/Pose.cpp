@@ -65,7 +65,7 @@ Pose Pose::operator-(const Pose & p) const
   return ans;
 }
 
-Pose Pose::operator=(const Pose & p)
+Pose & Pose::operator=(const Pose & p)
 {
   if (this != &p) {
     x_ = p.x_;

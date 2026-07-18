@@ -28,10 +28,9 @@ namespace emcl2
 Mcl::Mcl(
   const Pose & p, int num, const Scan & scan, const std::shared_ptr<OdomModel> & odom_model,
   const std::shared_ptr<LikelihoodFieldMap> & map)
-: last_odom_(NULL), prev_odom_(NULL)
 {
-  odom_model_ = move(odom_model);
-  map_ = move(map);
+  odom_model_ = odom_model;
+  map_ = map;
   scan_ = scan;
 
   if (num <= 0) {
@@ -53,11 +52,7 @@ Mcl::Mcl(
   }
 }
 
-Mcl::~Mcl()
-{
-  delete last_odom_;
-  delete prev_odom_;
-}
+Mcl::~Mcl() {}
 
 void Mcl::resampling(void)
 {
@@ -95,9 +90,9 @@ void Mcl::resampling(void)
 
 void Mcl::motionUpdate(double x, double y, double t)
 {
-  if (last_odom_ == NULL) {
-    last_odom_ = new Pose(x, y, t);
-    prev_odom_ = new Pose(x, y, t);
+  if (!last_odom_) {
+    last_odom_ = std::make_unique<Pose>(x, y, t);
+    prev_odom_ = std::make_unique<Pose>(x, y, t);
     return;
   } else {
     last_odom_->set(x, y, t);

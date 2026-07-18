@@ -438,10 +438,10 @@ bool EMcl2Node::getLidarPose(double & x, double & y, double & yaw, bool & inv)
   return true;
 }
 
-bool EMcl2Node::cbSimpleReset(
+void EMcl2Node::cbSimpleReset(
   const std_srvs::srv::Empty::Request::ConstSharedPtr, std_srvs::srv::Empty::Response::SharedPtr)
 {
-  return simple_reset_request_ = true;
+  simple_reset_request_ = true;
 }
 
 }  // namespace emcl2

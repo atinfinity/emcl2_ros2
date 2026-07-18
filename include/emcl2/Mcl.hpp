@@ -35,9 +35,6 @@ namespace emcl2
 class Mcl
 {
 public:
-  Mcl()
-  {
-  }
   Mcl(
     const Pose & p, int num, const Scan & scan,
     const std::shared_ptr<OdomModel> & odom_model,
@@ -64,8 +61,8 @@ public:
   static double sin_[(1 << 16)];
 
 protected:
-  Pose * last_odom_;
-  Pose * prev_odom_;
+  std::unique_ptr<Pose> last_odom_;
+  std::unique_ptr<Pose> prev_odom_;
 
   Scan scan_;
   int processed_seq_;
