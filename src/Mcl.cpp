@@ -192,7 +192,7 @@ void Mcl::meanPose(
   for (const auto & p : particles_) {
     xx += pow(p.p_.x_ - x_mean, 2);
     yy += pow(p.p_.y_ - y_mean, 2);
-    tt += pow(p.p_.t_ - t_mean, 2);
+    tt += pow(normalizeAngle(p.p_.t_ - t_mean), 2);
     tt2 += pow(normalizeAngle(p.p_.t_ + M_PI) - t2_mean, 2);
   }
 
