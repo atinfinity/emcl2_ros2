@@ -113,6 +113,18 @@ void EMcl2Node::initCommunication(void)
   global_loc_srv_ = create_service<std_srvs::srv::Empty>(
           "global_localization",
           std::bind(&EMcl2Node::cbSimpleReset, this, std::placeholders::_1, std::placeholders::_2));
+  // amcl-compatible alias for the global localization service above.
+  reinit_global_loc_srv_ = create_service<std_srvs::srv::Empty>(
+          "reinitialize_global_localization",
+          std::bind(&EMcl2Node::cbSimpleReset, this, std::placeholders::_1, std::placeholders::_2));
+  nomotion_update_srv_ = create_service<std_srvs::srv::Empty>(
+          "request_nomotion_update",
+          std::bind(&EMcl2Node::cbNomotionUpdate, this, std::placeholders::_1,
+      std::placeholders::_2));
+  set_initial_pose_srv_ = create_service<nav2_msgs::srv::SetInitialPose>(
+          "set_initial_pose",
+          std::bind(&EMcl2Node::cbSetInitialPose, this, std::placeholders::_1,
+      std::placeholders::_2));
 
   this->get_parameter("global_frame_id", global_frame_id_);
   this->get_parameter("footprint_frame_id", footprint_frame_id_);
@@ -232,15 +244,13 @@ void EMcl2Node::cbScan(const sensor_msgs::msg::LaserScan::ConstSharedPtr msg)
   }
 }
 
-void EMcl2Node::initialPoseReceived(
-  const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr msg)
+void EMcl2Node::setInitialPose(double x, double y, double t)
 {
-  RCLCPP_INFO(get_logger(), "Run receiveInitialPose");
+  init_x_ = x;
+  init_y_ = y;
+  init_t_ = t;
   if (!initialpose_receive_) {
     if (scan_receive_ && map_receive_) {
-      init_x_ = msg->pose.pose.position.x;
-      init_y_ = msg->pose.pose.position.y;
-      init_t_ = tf2::getYaw(msg->pose.pose.orientation);
       pf_->initialize(init_x_, init_y_, init_t_);
       initialpose_receive_ = true;
     } else {
@@ -256,10 +266,39 @@ void EMcl2Node::initialPoseReceived(
       }
     }
   } else {
+    // Defer to loop(); it runs pf_->initialize() consistently with the update.
     init_request_ = true;
-    init_x_ = msg->pose.pose.position.x;
-    init_y_ = msg->pose.pose.position.y;
-    init_t_ = tf2::getYaw(msg->pose.pose.orientation);
+  }
+}
+
+void EMcl2Node::initialPoseReceived(
+  const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr msg)
+{
+  RCLCPP_INFO(get_logger(), "Run receiveInitialPose");
+  setInitialPose(
+          msg->pose.pose.position.x, msg->pose.pose.position.y,
+          tf2::getYaw(msg->pose.pose.orientation));
+}
+
+void EMcl2Node::cbSetInitialPose(
+  const nav2_msgs::srv::SetInitialPose::Request::ConstSharedPtr req,
+  nav2_msgs::srv::SetInitialPose::Response::SharedPtr)
+{
+  RCLCPP_INFO(get_logger(), "Run set_initial_pose service");
+  setInitialPose(
+          req->pose.pose.pose.position.x, req->pose.pose.pose.position.y,
+          tf2::getYaw(req->pose.pose.pose.orientation));
+}
+
+void EMcl2Node::cbNomotionUpdate(
+  const std_srvs::srv::Empty::Request::ConstSharedPtr, std_srvs::srv::Empty::Response::SharedPtr)
+{
+  RCLCPP_INFO(get_logger(), "Run request_nomotion_update service");
+  // emcl2 already runs one update per scan, so force an extra sensor update on
+  // the latest scan by clearing the sequence guard and running the loop once.
+  if (init_pf_ && scan_receive_) {
+    pf_->clearProcessedScan();
+    loop();
   }
 }
 

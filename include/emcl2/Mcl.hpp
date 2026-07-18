@@ -56,6 +56,7 @@ public:
     double & t_var, double & xy_cov, double & yt_cov, double & tx_cov);
 
   void simpleReset(void);
+  void clearProcessedScan(void) {processed_seq_ = -1;}
 
   static double cos_[(1 << 16)];
   static double sin_[(1 << 16)];
