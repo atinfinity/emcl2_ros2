@@ -1,14 +1,28 @@
+// Copyright 2022 Ryuichi Ueda ryuichiueda@gmail.com
 // SPDX-FileCopyrightText: 2022 Ryuichi Ueda ryuichiueda@gmail.com
 // SPDX-License-Identifier: LGPL-3.0-or-later
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#include "emcl2/ExpResetMcl2.h"
-
-#include <rclcpp/rclcpp.hpp>
+#include "emcl2/ExpResetMcl2.hpp"
 
 #include <stdlib.h>
 
 #include <cmath>
 #include <iostream>
+
+#include <rclcpp/rclcpp.hpp>
 
 namespace emcl2
 {
@@ -97,11 +111,14 @@ void ExpResetMcl2::expansionReset(void)
 {
   for (auto & p : particles_) {
     double length =
+      // NOLINTNEXTLINE(runtime/threadsafe_fn)
       2 * (static_cast<double>(rand()) / RAND_MAX - 0.5) * expansion_radius_position_;
+    // NOLINTNEXTLINE(runtime/threadsafe_fn)
     double direction = 2 * (static_cast<double>(rand()) / RAND_MAX - 0.5) * M_PI;
 
     p.p_.x_ += length * cos(direction);
     p.p_.y_ += length * sin(direction);
+    // NOLINTNEXTLINE(runtime/threadsafe_fn)
     p.p_.t_ += 2 * (static_cast<double>(rand()) / RAND_MAX - 0.5) *
       expansion_radius_orientation_;
     p.w_ = 1.0 / particles_.size();

@@ -15,32 +15,36 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#include "emcl2/OdomModel.hpp"
+#ifndef EMCL2__ODOMMODEL_HPP_
+#define EMCL2__ODOMMODEL_HPP_
 
-#include <stdlib.h>
-
-#include <cmath>
-#include <iostream>
+#include <random>
 
 namespace emcl2
 {
-OdomModel::OdomModel(double ff, double fr, double rf, double rr)
-: fw_dev_(0.0), rot_dev_(0.0), engine_(seed_gen_()), std_norm_dist_(0.0, 1.0)
+class OdomModel
 {
-  fw_var_per_fw_ = ff * ff;
-  fw_var_per_rot_ = fr * fr;
-  rot_var_per_fw_ = rf * rf;
-  rot_var_per_rot_ = rr * rr;
-}
+public:
+  OdomModel(double ff, double fr, double rf, double rr);
+  void setDev(double length, double angle);
+  double drawFwNoise(void);
+  double drawRotNoise(void);
 
-void OdomModel::setDev(double length, double angle)
-{
-  fw_dev_ = sqrt(fabs(length) * fw_var_per_fw_ + fabs(angle) * fw_var_per_rot_);
-  rot_dev_ = sqrt(fabs(length) * rot_var_per_fw_ + fabs(angle) * rot_var_per_rot_);
-}
+private:
+  double fw_dev_;
+  double rot_dev_;
 
-double OdomModel::drawFwNoise(void) {return std_norm_dist_(engine_) * fw_dev_;}
+  double fw_var_per_fw_;
+  double fw_var_per_rot_;
+  double rot_var_per_fw_;
+  double rot_var_per_rot_;
 
-double OdomModel::drawRotNoise(void) {return std_norm_dist_(engine_) * rot_dev_;}
+  std::random_device seed_gen_;
+  std::default_random_engine engine_ {seed_gen_()};
+
+  std::normal_distribution< > std_norm_dist_;
+};
 
 }  // namespace emcl2
+
+#endif  // EMCL2__ODOMMODEL_HPP_

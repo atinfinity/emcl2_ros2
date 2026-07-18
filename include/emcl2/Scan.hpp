@@ -15,32 +15,39 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#include "emcl2/OdomModel.hpp"
+#ifndef EMCL2__SCAN_HPP_
+#define EMCL2__SCAN_HPP_
 
-#include <stdlib.h>
-
-#include <cmath>
 #include <iostream>
+#include <vector>
+#include <cstdint>
 
 namespace emcl2
 {
-OdomModel::OdomModel(double ff, double fr, double rf, double rr)
-: fw_dev_(0.0), rot_dev_(0.0), engine_(seed_gen_()), std_norm_dist_(0.0, 1.0)
+
+class Scan
 {
-  fw_var_per_fw_ = ff * ff;
-  fw_var_per_rot_ = fr * fr;
-  rot_var_per_fw_ = rf * rf;
-  rot_var_per_rot_ = rr * rr;
-}
+public:
+  int seq_;
+  int scan_increment_;
+  double angle_max_;
+  double angle_min_;
+  double angle_increment_;
+  double range_max_;
+  double range_min_;
 
-void OdomModel::setDev(double length, double angle)
-{
-  fw_dev_ = sqrt(fabs(length) * fw_var_per_fw_ + fabs(angle) * fw_var_per_rot_);
-  rot_dev_ = sqrt(fabs(length) * rot_var_per_fw_ + fabs(angle) * rot_var_per_rot_);
-}
+  double lidar_pose_x_;
+  double lidar_pose_y_;
+  double lidar_pose_yaw_;
 
-double OdomModel::drawFwNoise(void) {return std_norm_dist_(engine_) * fw_dev_;}
+  std::vector<double> ranges_;
+  std::vector<uint16_t> directions_16bit_;
 
-double OdomModel::drawRotNoise(void) {return std_norm_dist_(engine_) * rot_dev_;}
+  Scan & operator=(const Scan & s);
+  int countValidBeams(double * rate = NULL);
+  bool valid(double range);
+};
 
 }  // namespace emcl2
+
+#endif  // EMCL2__SCAN_HPP_

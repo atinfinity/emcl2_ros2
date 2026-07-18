@@ -1,13 +1,27 @@
+// Copyright 2022 Ryuichi Ueda ryuichiueda@gmail.com
 // SPDX-FileCopyrightText: 2022 Ryuichi Ueda ryuichiueda@gmail.com
 // SPDX-License-Identifier: LGPL-3.0-or-later
-#include "emcl2/Mcl.h"
-
-#include <rclcpp/rclcpp.hpp>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#include "emcl2/Mcl.hpp"
 
 #include <stdlib.h>
 
 #include <cmath>
 #include <iostream>
+
+#include <rclcpp/rclcpp.hpp>
 
 namespace emcl2
 {
@@ -54,6 +68,7 @@ void Mcl::resampling(void)
 
   std::vector<Particle> old(particles_);
 
+  // NOLINTNEXTLINE(runtime/threadsafe_fn)
   double start = static_cast<double>(rand()) / (RAND_MAX * particles_.size());
   double step = 1.0 / particles_.size();
 

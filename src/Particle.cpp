@@ -1,11 +1,25 @@
+// Copyright 2022 Ryuichi Ueda ryuichiueda@gmail.com
 // SPDX-FileCopyrightText: 2022 Ryuichi Ueda ryuichiueda@gmail.com
 // SPDX-License-Identifier: LGPL-3.0-or-later
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#include "emcl2/Particle.h"
-
-#include "emcl2/Mcl.h"
+#include "emcl2/Particle.hpp"
 
 #include <cmath>
+
+#include "emcl2/Mcl.hpp"
 
 namespace emcl2
 {
@@ -45,6 +59,7 @@ bool Particle::wallConflict(LikelihoodFieldMap * map, Scan & scan, double thresh
   uint16_t lidar_yaw = Pose::get16bitRepresentation(scan.lidar_pose_yaw_);
 
   std::vector<int> order;
+  // NOLINTNEXTLINE(runtime/threadsafe_fn)
   if (rand() % 2) {
     for (size_t i = 0; i < scan.ranges_.size(); i += scan.scan_increment_) {
       order.push_back(i);

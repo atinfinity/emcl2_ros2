@@ -1,17 +1,22 @@
+// Copyright 2022 Ryuichi Ueda ryuichiueda@gmail.com
 // SPDX-FileCopyrightText: 2022 Ryuichi Ueda ryuichiueda@gmail.com
 // SPDX-License-Identifier: LGPL-3.0-or-later
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // CAUTION: Some lines came from amcl (LGPL).
 
-#include "emcl2/emcl2_node.h"
-
-#include "emcl2/LikelihoodFieldMap.h"
-#include "emcl2/OdomModel.h"
-#include "emcl2/Pose.h"
-#include "emcl2/Scan.h"
-
-#include <rclcpp/node_interfaces/node_topics_interface.hpp>
-
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include "emcl2/emcl2_node.hpp"
 
 #include <tf2/LinearMath/Transform.h>
 #include <tf2/convert.h>
@@ -26,6 +31,14 @@
 #include <memory>
 #include <type_traits>
 #include <utility>
+
+#include <rclcpp/node_interfaces/node_topics_interface.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+#include "emcl2/LikelihoodFieldMap.hpp"
+#include "emcl2/OdomModel.hpp"
+#include "emcl2/Pose.hpp"
+#include "emcl2/Scan.hpp"
 
 namespace emcl2
 {
