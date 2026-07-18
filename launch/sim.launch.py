@@ -1,16 +1,22 @@
-# Copyright 2024 The emcl2_ros2 Authors
+# Copyright 2026 emcl2_ros2 developers
+# SPDX-FileCopyrightText: 2026 emcl2_ros2 developers
+# SPDX-License-Identifier: LGPL-3.0-or-later
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Derived from nav2_bringup's tb3_simulation_launch.py and nav2_minimal_tb3_sim
+# (Open Source Robotics Foundation / Open Navigation LLC, Apache-2.0).
 
 """
 Launch a minimal TurtleBot3 Gazebo simulation for the emcl2 demo.
