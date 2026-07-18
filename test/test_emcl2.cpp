@@ -219,6 +219,51 @@ TEST(MclTest, initializeResetsParticles)
   }
 }
 
+// The MemoryLifecycleTest cases exercise construction, copy and destruction
+// paths intensively. They act as functional tests in a normal build and as
+// leak checks when built with -DENABLE_SANITIZER=ON (AddressSanitizer with
+// LeakSanitizer).
+
+TEST(MemoryLifecycleTest, likelihoodFieldMapConstructDestroyLoop)
+{
+  auto grid = makeMap(100, 100, 0.05);
+  for (int x = 0; x < 100; x++) {
+    grid.data[x] = 100;  // wall along the bottom row
+  }
+
+  for (int i = 0; i < 100; i++) {
+    emcl2::LikelihoodFieldMap map(grid, 0.2);
+    EXPECT_EQ(map.likelihood(0.025, 0.025), 255);
+  }
+}
+
+TEST(MemoryLifecycleTest, likelihoodFieldMapCopyIsSafe)
+{
+  auto grid = makeMap(10, 10, 0.1);
+  grid.data[5 + 5 * 10] = 100;
+  emcl2::LikelihoodFieldMap original(grid, 0.2);
+
+  emcl2::LikelihoodFieldMap copy(original);
+  emcl2::LikelihoodFieldMap assigned(makeMap(10, 10, 0.1), 0.2);
+  assigned = original;
+
+  EXPECT_EQ(copy.likelihood(0.55, 0.55), 255);
+  EXPECT_EQ(assigned.likelihood(0.55, 0.55), 255);
+}
+
+TEST(MemoryLifecycleTest, particleFilterLifecycleLoop)
+{
+  for (int i = 0; i < 20; i++) {
+    auto pf = makePf(50, emcl2::Pose(0.3, 0.4, 0.5));
+    // exercise the map replacement path used when a map is re-received
+    pf->setMap(std::make_shared<emcl2::LikelihoodFieldMap>(makeMap(10, 10, 0.1), 0.2));
+    pf->motionUpdate(0.1 * i, 0.0, 0.0);
+    pf->motionUpdate(0.1 * i + 0.05, 0.02, 0.1);
+    pf->initialize(0.5, 0.5, 0.0);
+    pf->simpleReset();
+  }
+}
+
 TEST(MclTest, simpleResetScattersParticlesInsideMap)
 {
   auto pf = makePf(10, emcl2::Pose(0.3, 0.4, 0.5));

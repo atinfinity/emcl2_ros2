@@ -9,6 +9,12 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-O3 -Wall -Wextra -Wpedantic)
 endif()
 
+option(ENABLE_SANITIZER "Build with AddressSanitizer and LeakSanitizer" OFF)
+if(ENABLE_SANITIZER)
+  add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+  add_link_options(-fsanitize=address)
+endif()
+
 find_package(ament_cmake_auto REQUIRED)
 
 ament_auto_find_build_dependencies()
