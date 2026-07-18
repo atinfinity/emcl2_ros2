@@ -28,17 +28,17 @@ namespace emcl2
 class Scan
 {
 public:
-  int seq_;
-  int scan_increment_;
-  double angle_max_;
-  double angle_min_;
-  double angle_increment_;
-  double range_max_;
-  double range_min_;
+  int seq_ = 0;
+  int scan_increment_ = 1;
+  double angle_max_ = 0.0;
+  double angle_min_ = 0.0;
+  double angle_increment_ = 0.0;
+  double range_max_ = 0.0;
+  double range_min_ = 0.0;
 
-  double lidar_pose_x_;
-  double lidar_pose_y_;
-  double lidar_pose_yaw_;
+  double lidar_pose_x_ = 0.0;
+  double lidar_pose_y_ = 0.0;
+  double lidar_pose_yaw_ = 0.0;
 
   std::vector<double> ranges_;
   std::vector<uint16_t> directions_16bit_;
