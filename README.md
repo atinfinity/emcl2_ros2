@@ -31,8 +31,8 @@ The demo uses the `tb3_sandbox` world from [`nav2_minimal_tb3_sim`](https://gith
 # 1. Gazebo simulator (world + TurtleBot3 + robot_state_publisher)
 ros2 launch emcl2 sim.launch.py
 
-# 2. RViz
-ros2 launch nav2_bringup rviz_launch.py
+# 2. RViz (emcl2 config: shows the robot model and particle cloud)
+ros2 launch nav2_bringup rviz_launch.py rviz_config:=$(ros2 pkg prefix --share emcl2)/rviz/emcl2.rviz
 
 # 3. emcl2 (localization; replaces amcl)
 ros2 launch emcl2 emcl2.launch.py params_file:=$(ros2 pkg prefix --share emcl2)/config/emcl2_quick_start.param.yaml map:=$(ros2 pkg prefix --share nav2_bringup)/maps/tb3_sandbox.yaml use_sim_time:=true

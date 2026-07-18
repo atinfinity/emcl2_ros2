@@ -5,7 +5,7 @@ ros2 pkg list | grep -q nav2_bringup || { echo install nav2_bringup ; exit 1; }
 
 ros2 launch emcl2 sim.launch.py &
 sleep 5
-ros2 launch nav2_bringup rviz_launch.py &
+ros2 launch nav2_bringup rviz_launch.py rviz_config:=$(ros2 pkg prefix --share emcl2)/rviz/emcl2.rviz &
 sleep 1
 ros2 launch nav2_bringup navigation_launch.py use_sim_time:=true &
 sleep 5
