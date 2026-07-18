@@ -70,6 +70,7 @@ void EMcl2Node::declareParameter()
 	this->declare_parameter("extraction_rate", 0.1);
 	this->declare_parameter("range_threshold", 0.1);
 	this->declare_parameter("sensor_reset", false);
+	this->declare_parameter("enable_expansion_resetting", true);
 
 	this->declare_parameter("odom_fw_dev_per_fw", 0.19);
 	this->declare_parameter("odom_fw_dev_per_rot", 0.0001);
@@ -149,13 +150,15 @@ void EMcl2Node::initPF(void)
 
 	double extraction_rate, range_threshold;
 	bool sensor_reset = false;
+	bool enable_expansion_resetting = true;
 	this->get_parameter("extraction_rate", extraction_rate);
 	this->get_parameter("range_threshold", range_threshold);
 	this->get_parameter("sensor_reset", sensor_reset);
+	this->get_parameter("enable_expansion_resetting", enable_expansion_resetting);
 
 	pf_.reset(new ExpResetMcl2(
 	  init_pose, num_particles, scan, om, map, alpha_th, ex_rad_pos, ex_rad_ori,
-	  extraction_rate, range_threshold, sensor_reset));
+	  extraction_rate, range_threshold, sensor_reset, enable_expansion_resetting));
 
 	init_pf_ = true;
 }
