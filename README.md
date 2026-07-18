@@ -82,7 +82,6 @@ This node also has a sensor resetting algorithm. When `sensor_reset` is true, a 
 
 | Name                          | Type    | Default    | Description                                                        |
 |-------------------------------|---------|------------|--------------------------------------------------------------------|
-| `odom_freq`                    | `int`     | 20 [Hz]    | deprecated and ignored; the update now runs once per laser scan (kept only so existing parameter files still load) |
 | `num_particles`                | `int`     | 500       | number of particles                                                |
 | `odom_frame_id`                | `string`  | "odom"     | the frame for odometry                                             |
 | `footprint_frame_id`           | `string`  | "base_footprint" | the frame of the localized robot's base                    |

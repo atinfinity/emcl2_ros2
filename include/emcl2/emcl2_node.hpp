@@ -82,7 +82,6 @@ private:
 
   tf2::Transform latest_tf_;
 
-  int odom_freq_;  // retained for parameter-file compatibility; the update is now scan-driven
   bool init_pf_;
   bool init_request_;
   bool initialpose_receive_;

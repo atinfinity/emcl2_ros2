@@ -66,7 +66,6 @@ void EMcl2Node::declareParameter()
   this->declare_parameter("odom_frame_id", std::string("odom"));
   this->declare_parameter("base_frame_id", std::string("base_link"));
 
-  this->declare_parameter("odom_freq", 20);
   this->declare_parameter("transform_tolerance", 0.2);
 
   this->declare_parameter("laser_min_range", 0.0);
@@ -119,8 +118,6 @@ void EMcl2Node::initCommunication(void)
   this->get_parameter("footprint_frame_id", footprint_frame_id_);
   this->get_parameter("odom_frame_id", odom_frame_id_);
   this->get_parameter("base_frame_id", base_frame_id_);
-
-  this->get_parameter("odom_freq", odom_freq_);
 
   this->get_parameter("transform_tolerance", transform_tolerance_);
 
