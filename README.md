@@ -41,11 +41,11 @@ ros2 launch emcl2 emcl2.launch.py params_file:=$(ros2 pkg prefix --share emcl2)/
 ros2 launch nav2_bringup navigation_launch.py use_sim_time:=true
 ```
 
-## demo movies 
+## demo
 
-[![](https://img.youtube.com/vi/dqS7KgGxwBs/0.jpg)](https://www.youtube.com/watch?v=dqS7KgGxwBs)
+![emcl2 demo](media/emcl2_demo.gif)
 
-[![](https://img.youtube.com/vi/n9tzKY6ua_o/0.jpg)](https://www.youtube.com/watch?v=n9tzKY6ua_o)
+emcl2 localizing a TurtleBot3 driven by Nav2 through the `tb3_sandbox` world in Gazebo. The green arrows are the particle cloud and the red points are the laser scan aligned with the map.
 
 ## Nodes
 
