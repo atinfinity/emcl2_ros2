@@ -37,3 +37,28 @@ jobs:
           colcon test
           colcon test-result --verbose
         shell: bash
+
+  test-asan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container: osrf/ros:jazzy-desktop-full
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build with AddressSanitizer
+        run: |
+          mkdir -p /root/ros2_ws/src
+          cp -r $GITHUB_WORKSPACE /root/ros2_ws/src/emcl2_ros2
+          cd /root/ros2_ws
+          source /opt/ros/$ROS_DISTRO/setup.bash
+          apt update
+          rosdep update
+          rosdep install -i -y --from-path src --rosdistro $ROS_DISTRO
+          colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZER=ON
+        shell: bash
+      - name: Leak check (gtest under ASan/LSan)
+        run: |
+          cd /root/ros2_ws
+          source /opt/ros/$ROS_DISTRO/setup.bash
+          colcon test --ctest-args -R test_emcl2
+          colcon test-result --verbose
+        shell: bash
