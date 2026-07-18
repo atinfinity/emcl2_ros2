@@ -62,3 +62,43 @@ jobs:
           colcon test --ctest-args -R test_emcl2
           colcon test-result --verbose
         shell: bash
+
+  localization:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container: osrf/ros:jazzy-desktop-full
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and install dependencies
+        run: |
+          mkdir -p /root/ros2_ws/src
+          cp -r $GITHUB_WORKSPACE /root/ros2_ws/src/emcl2_ros2
+          cd /root/ros2_ws
+          source /opt/ros/$ROS_DISTRO/setup.bash
+          apt update
+          rosdep update
+          rosdep install -i -y --from-path src --rosdistro $ROS_DISTRO
+          apt install -y \
+            ros-$ROS_DISTRO-nav2-minimal-tb3-sim \
+            ros-$ROS_DISTRO-nav2-bringup \
+            python3-pip libgl1-mesa-dri libegl-mesa0 libglx-mesa0
+          pip3 install --break-system-packages evo
+          colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+        shell: bash
+      - name: Run localization evaluation (headless sim + emcl2 vs ground truth)
+        run: |
+          cd /root/ros2_ws
+          source /opt/ros/$ROS_DISTRO/setup.bash
+          source install/setup.bash
+          export PATH="$HOME/.local/bin:$PATH"
+          export HEADLESS_RENDERING=true
+          export OUTPUT_DIR=/root/ros2_ws/localization_eval_output
+          bash install/emcl2/share/emcl2/test/run_localization_eval.sh
+        shell: bash
+      - name: Upload evo results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: localization-eval
+          path: /root/ros2_ws/localization_eval_output/
+          if-no-files-found: warn
