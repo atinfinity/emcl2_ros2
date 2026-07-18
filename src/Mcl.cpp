@@ -20,6 +20,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <stdexcept>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -36,6 +37,7 @@ Mcl::Mcl(
 
   if (num <= 0) {
     RCLCPP_ERROR(rclcpp::get_logger("emcl2_node"), "NO PARTICLE");
+    throw std::invalid_argument("num_particles must be positive");
   }
 
   Particle particle(p.x_, p.y_, p.t_, 1.0 / num);

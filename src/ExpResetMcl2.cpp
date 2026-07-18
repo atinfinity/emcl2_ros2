@@ -92,6 +92,10 @@ void ExpResetMcl2::sensorUpdate(double lidar_x, double lidar_y, double lidar_t, 
 
 double ExpResetMcl2::nonPenetrationRate(int skip, LikelihoodFieldMap * map, Scan & scan)
 {
+  if (skip < 1) {
+    skip = 1;
+  }
+
   static uint16_t shift = 0;
   int counter = 0;
   int penetrating = 0;

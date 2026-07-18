@@ -47,6 +47,7 @@ EMcl2Node::EMcl2Node()
   ros_clock_(RCL_SYSTEM_TIME),
   init_pf_(false),
   init_request_(false),
+  initialpose_receive_(false),
   simple_reset_request_(false),
   scan_receive_(false),
   map_receive_(false)
@@ -246,15 +247,15 @@ void EMcl2Node::initialPoseReceived(
 
 void EMcl2Node::loop(void)
 {
-  if (init_request_) {
-    pf_->initialize(init_x_, init_y_, init_t_);
-    init_request_ = false;
-  } else if (simple_reset_request_) {
-    pf_->simpleReset();
-    simple_reset_request_ = false;
-  }
-
   if (init_pf_) {
+    if (init_request_) {
+      pf_->initialize(init_x_, init_y_, init_t_);
+      init_request_ = false;
+    } else if (simple_reset_request_) {
+      pf_->simpleReset();
+      simple_reset_request_ = false;
+    }
+
     double x, y, t;
     if (!getOdomPose(x, y, t)) {
       RCLCPP_INFO(get_logger(), "can't get odometry info");
