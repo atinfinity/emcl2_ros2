@@ -92,11 +92,14 @@ fi
 echo "[eval] gt samples=$(wc -l <"$GT_TUM")  est samples=$(wc -l <"$EST_TUM")"
 
 # 5) Compare with evo (no alignment: gz world frame == emcl2 map frame).
+# Agg backend so the plots render without a display; evo writes
+# ape_plot_map.png (trajectory colored by error) and ape_plot_raw.png.
+export MPLBACKEND=Agg
 echo "[eval] running evo_ape ..."
 evo_ape tum "$GT_TUM" "$EST_TUM" \
   --t_max_diff 0.1 \
   --save_results "$OUTPUT_DIR/ape_results.zip" \
-  --plot_mode xy --save_plot "$OUTPUT_DIR/ape_plot.pdf" \
+  --plot_mode xy --save_plot "$OUTPUT_DIR/ape_plot.png" \
   2>&1 | tee "$OUTPUT_DIR/ape_stats.txt"
 EVO_RC=${PIPESTATUS[0]}
 

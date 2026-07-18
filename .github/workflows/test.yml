@@ -67,6 +67,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     container: osrf/ros:jazzy-desktop-full
+    permissions:
+      contents: write        # push the plots to the ci-assets branch
+      pull-requests: write    # post the evo result comment
     steps:
       - uses: actions/checkout@v5
       - name: Build and install dependencies
@@ -102,3 +105,15 @@ jobs:
           name: localization-eval
           path: /root/ros2_ws/localization_eval_output/
           if-no-files-found: warn
+      - name: Post evo result to the PR
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          OUTPUT_DIR: /root/ros2_ws/localization_eval_output
+        run: python3 $GITHUB_WORKSPACE/test/post_localization_eval.py
+        shell: bash
