@@ -9,19 +9,21 @@
 # Env vars:
 #   HEADLESS_RENDERING=true|false  use gz EGL software rendering (default: true)
 #   OUTPUT_DIR=<path>              where evo results/plots are written
+#   RETRIES=<n>                    bringup attempts before giving up (default: 3)
 #
 # Requires: this workspace sourced, nav2_minimal_tb3_sim, nav2_bringup, evo.
 set -e
 
 HEADLESS_RENDERING="${HEADLESS_RENDERING:-true}"
 OUTPUT_DIR="${OUTPUT_DIR:-$(pwd)/localization_eval_output}"
+RETRIES="${RETRIES:-3}"
 WORK="$(mktemp -d)"
 mkdir -p "$OUTPUT_DIR"
 
 SIM=$(ros2 pkg prefix --share nav2_minimal_tb3_sim)
 EMCL2=$(ros2 pkg prefix --share emcl2)
 
-echo "[eval] HEADLESS_RENDERING=$HEADLESS_RENDERING  OUTPUT_DIR=$OUTPUT_DIR"
+echo "[eval] HEADLESS_RENDERING=$HEADLESS_RENDERING  OUTPUT_DIR=$OUTPUT_DIR  RETRIES=$RETRIES"
 
 if [ "$HEADLESS_RENDERING" = "true" ]; then
   # GPU-less software rendering for gz's ogre2 sensors.
@@ -51,47 +53,125 @@ i = s.rfind('</model>')
 open(dst, 'w').write(s[:i] + plugin + s[i:])
 PY
 
-# 2) Bring up sim + emcl2.
-ros2 launch emcl2 localization_eval.launch.py \
-  world_sdf:="$WORK/world.sdf" robot_sdf:="$WORK/robot_gt.sdf" \
-  headless_rendering:="$HEADLESS_RENDERING" > "$OUTPUT_DIR/bringup.log" 2>&1 &
-LAUNCH_PID=$!
-cleanup() {
-  kill "$LAUNCH_PID" 2>/dev/null || true
+# 2) Bring up sim + emcl2, retrying if localization does not actually start.
+#    A transient lifecycle/map startup race can leave emcl2 advertising
+#    /mcl_pose while never publishing (the particle filter never gets the map),
+#    which would silently produce an all-zero estimate. We therefore wait for
+#    real messages -- not just the topic -- and restart the whole bringup on
+#    failure instead of driving a path against a filter that never localized.
+LAUNCH_PID=""
+start_bringup() {
+  # Run the launch in its own process group (setsid) so the entire tree -- gz,
+  # bridges, robot_state_publisher, map_server, lifecycle_manager, emcl2 -- can
+  # be torn down together. Signalling only the launch PID leaves those children
+  # orphaned; stale lifecycle_manager/emcl2 nodes then collide with the next
+  # attempt (duplicate node names and bonds) and pile up across repeated runs.
+  setsid ros2 launch emcl2 localization_eval.launch.py \
+    world_sdf:="$WORK/world.sdf" robot_sdf:="$WORK/robot_gt.sdf" \
+    headless_rendering:="$HEADLESS_RENDERING" > "$OUTPUT_DIR/bringup.log" 2>&1 &
+  LAUNCH_PID=$!
+}
+kill_bringup() {
+  # Kill the whole process group (setsid made LAUNCH_PID its leader), then sweep
+  # any stragglers that may have detached (gz and the separately-started logger).
+  [ -n "$LAUNCH_PID" ] && kill -TERM -- "-$LAUNCH_PID" 2>/dev/null || true
   pkill -f "gz sim" 2>/dev/null || true
   pkill -f "parameter_bridge" 2>/dev/null || true
+  pkill -f "pose_logger.py" 2>/dev/null || true
+  LAUNCH_PID=""
+  sleep 3  # let the process group die and gz transport ports free
+}
+cleanup() {
+  kill_bringup
   rm -rf "$WORK"
 }
 trap cleanup EXIT
 
-# 3) Wait for localization to be up (both GT and estimate publishing).
-echo "[eval] waiting for /ground_truth and /mcl_pose ..."
-timeout 120 bash -c '
-  until ros2 topic list 2>/dev/null | grep -q "^/ground_truth$" \
-        && ros2 topic list 2>/dev/null | grep -q "^/mcl_pose$"; do sleep 1; done'
-# let the filter settle
-sleep 5
+# Block until one real message arrives on a topic (data, not just advertised).
+wait_for_msg() {  # $1=topic  $2=timeout_s
+  timeout "$2" ros2 topic echo "$1" --once > /dev/null 2>&1
+}
 
-# 4) Log poses (TUM files, flushed per line) and drive the fixed path.
 GT_TUM="$OUTPUT_DIR/ground_truth.tum"
 EST_TUM="$OUTPUT_DIR/mcl_pose.tum"
-ros2 run emcl2 pose_logger.py "$GT_TUM" "$EST_TUM" > "$OUTPUT_DIR/logger.log" 2>&1 &
-LOG_PID=$!
-sleep 2
-echo "[eval] driving fixed path ..."
-ros2 run emcl2 drive_path.py
-sleep 2
-kill -INT "$LOG_PID" 2>/dev/null || true
-sleep 2
-kill -9 "$LOG_PID" 2>/dev/null || true
 
-if [ ! -s "$GT_TUM" ] || [ ! -s "$EST_TUM" ]; then
-  echo "[eval] ERROR: pose logs are empty (gt=$(wc -l <"$GT_TUM" 2>/dev/null) est=$(wc -l <"$EST_TUM" 2>/dev/null))"
-  exit 1
+# Fraction of the ground-truth time span that the estimate overlaps. emcl2 can
+# stall part way through a run (e.g. a TF/sim-time hiccup drops all scans), and
+# comparing only the early overlap would yield a misleadingly low APE. Returns
+# 0 when either trajectory is missing or empty.
+coverage() {
+  python3 - "$GT_TUM" "$EST_TUM" <<'PY'
+import sys
+def span(f):
+    try:
+        ts = [float(l.split()[0]) for l in open(f) if l.strip()]
+    except OSError:
+        ts = []
+    return (ts[0], ts[-1]) if ts else None
+gt = span(sys.argv[1])
+est = span(sys.argv[2])
+if not gt or not est or gt[1] <= gt[0]:
+    print("0.000")
+    raise SystemExit
+overlap = max(0.0, min(gt[1], est[1]) - max(gt[0], est[0]))
+print(f"{overlap / (gt[1] - gt[0]):.3f}")
+PY
+}
+
+# One full evaluation attempt: bring up, wait for real data, drive the path
+# while logging, and require the estimate to span (>=90% of) the ground-truth
+# window. Returns 0 only on a clean, fully-covered run.
+run_attempt() {
+  start_bringup
+  echo "[eval] waiting for /ground_truth and /mcl_pose data ..."
+  if ! { wait_for_msg /ground_truth 120 && wait_for_msg /mcl_pose 90; }; then
+    echo "[eval] no data (localization did not come up)"
+    return 1
+  fi
+  sleep 5  # let the filter settle
+
+  : > "$GT_TUM"
+  : > "$EST_TUM"
+  ros2 run emcl2 pose_logger.py "$GT_TUM" "$EST_TUM" > "$OUTPUT_DIR/logger.log" 2>&1 &
+  local log_pid=$!
+  sleep 2
+  echo "[eval] driving fixed path ..."
+  ros2 run emcl2 drive_path.py
+  sleep 2
+  kill -INT "$log_pid" 2>/dev/null || true
+  sleep 2
+  kill -9 "$log_pid" 2>/dev/null || true
+
+  if [ ! -s "$GT_TUM" ] || [ ! -s "$EST_TUM" ]; then
+    echo "[eval] pose logs are empty (gt=$(wc -l <"$GT_TUM" 2>/dev/null) est=$(wc -l <"$EST_TUM" 2>/dev/null))"
+    return 1
+  fi
+  local cov
+  cov=$(coverage)
+  echo "[eval] gt samples=$(wc -l <"$GT_TUM")  est samples=$(wc -l <"$EST_TUM")  coverage=$cov"
+  if ! python3 -c "import sys; sys.exit(0 if float('$cov') >= 0.9 else 1)"; then
+    echo "[eval] estimate covers only $cov of ground truth (emcl2 stalled mid-run)"
+    return 1
+  fi
+  return 0
+}
+
+ok=false
+for attempt in $(seq 1 "$RETRIES"); do
+  echo "[eval] run attempt $attempt/$RETRIES ..."
+  if run_attempt; then
+    ok=true
+    break
+  fi
+  echo "[eval] attempt $attempt failed; restarting bringup ..."
+  kill_bringup
+done
+if [ "$ok" != true ]; then
+  echo "[eval] ERROR: no valid localization run after $RETRIES attempts"
+  exit 3
 fi
-echo "[eval] gt samples=$(wc -l <"$GT_TUM")  est samples=$(wc -l <"$EST_TUM")"
 
-# 5) Compare with evo (no alignment: gz world frame == emcl2 map frame).
+# 4) Compare with evo (no alignment: gz world frame == emcl2 map frame).
 # Agg backend so the plots render without a display; evo writes
 # ape_plot_map.png (trajectory colored by error) and ape_plot_raw.png.
 export MPLBACKEND=Agg
