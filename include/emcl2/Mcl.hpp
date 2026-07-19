@@ -61,6 +61,13 @@ public:
   // matches none of them -- while the cluster estimate returns one real mode.
   void setEstimateLargestCluster(bool v) {estimate_largest_cluster_ = v;}
 
+  // When true, a beam that crosses a mapped obstacle but still ends on one is not
+  // treated as wall penetration -- it is explained by a real wall behind a
+  // stale/phantom obstacle in the map. This suppresses spurious expansion resets
+  // when the map is out of date, while genuine conflicts (beam ending in open
+  // space) are still detected.
+  void setPhantomRobustness(bool v) {phantom_robust_ = v;}
+
   void simpleReset(void);
   void clearProcessedScan(void) {processed_seq_ = -1;}
 
@@ -82,6 +89,7 @@ protected:
   void resetWeight(void);
 
   bool estimate_largest_cluster_ = false;
+  bool phantom_robust_ = false;
   // Collect the particles belonging to the densest spatial cluster.
   void largestClusterParticles(std::vector<const Particle *> & out);
 

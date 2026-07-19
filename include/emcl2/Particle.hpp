@@ -39,14 +39,16 @@ public:
   }
 
   double likelihood(LikelihoodFieldMap * map, Scan & scan);
-  bool wallConflict(LikelihoodFieldMap * map, Scan & scan, double threshold, bool replace);
+  bool wallConflict(
+    LikelihoodFieldMap * map, Scan & scan, double threshold, bool replace,
+    bool endpoint_check = false);
   Pose p_;
   double w_;
 
 private:
   bool isPenetrating(
     double ox, double oy, double range, uint16_t direction, LikelihoodFieldMap * map,
-    double & hit_lx, double & hit_ly);
+    double & hit_lx, double & hit_ly, bool endpoint_check = false);
 
   bool checkWallConflict(
     LikelihoodFieldMap * map, double ox, double oy, double range, uint16_t direction,

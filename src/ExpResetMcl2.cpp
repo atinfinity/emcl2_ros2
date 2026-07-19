@@ -116,7 +116,9 @@ double ExpResetMcl2::nonPenetrationRate(int skip, LikelihoodFieldMap * map, Scan
 #endif
   for (int k = 0; k < n; k++) {
     counter++;
-    if (particles_[start + k * skip].wallConflict(map, scan, range_threshold_, sensor_reset_)) {
+    if (particles_[start + k * skip].wallConflict(
+        map, scan, range_threshold_, sensor_reset_, phantom_robust_))
+    {
       penetrating++;
     }
   }
