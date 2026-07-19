@@ -9,19 +9,21 @@
 # Env vars:
 #   HEADLESS_RENDERING=true|false  use gz EGL software rendering (default: true)
 #   OUTPUT_DIR=<path>              where evo results/plots are written
+#   RETRIES=<n>                    bringup attempts before giving up (default: 3)
 #
 # Requires: this workspace sourced, nav2_minimal_tb3_sim, nav2_bringup, evo.
 set -e
 
 HEADLESS_RENDERING="${HEADLESS_RENDERING:-true}"
 OUTPUT_DIR="${OUTPUT_DIR:-$(pwd)/localization_eval_output}"
+RETRIES="${RETRIES:-3}"
 WORK="$(mktemp -d)"
 mkdir -p "$OUTPUT_DIR"
 
 SIM=$(ros2 pkg prefix --share nav2_minimal_tb3_sim)
 EMCL2=$(ros2 pkg prefix --share emcl2)
 
-echo "[eval] HEADLESS_RENDERING=$HEADLESS_RENDERING  OUTPUT_DIR=$OUTPUT_DIR"
+echo "[eval] HEADLESS_RENDERING=$HEADLESS_RENDERING  OUTPUT_DIR=$OUTPUT_DIR  RETRIES=$RETRIES"
 
 if [ "$HEADLESS_RENDERING" = "true" ]; then
   # GPU-less software rendering for gz's ogre2 sensors.
@@ -51,28 +53,57 @@ i = s.rfind('</model>')
 open(dst, 'w').write(s[:i] + plugin + s[i:])
 PY
 
-# 2) Bring up sim + emcl2.
-ros2 launch emcl2 localization_eval.launch.py \
-  world_sdf:="$WORK/world.sdf" robot_sdf:="$WORK/robot_gt.sdf" \
-  headless_rendering:="$HEADLESS_RENDERING" > "$OUTPUT_DIR/bringup.log" 2>&1 &
-LAUNCH_PID=$!
-cleanup() {
-  kill "$LAUNCH_PID" 2>/dev/null || true
+# 2) Bring up sim + emcl2, retrying if localization does not actually start.
+#    A transient lifecycle/map startup race can leave emcl2 advertising
+#    /mcl_pose while never publishing (the particle filter never gets the map),
+#    which would silently produce an all-zero estimate. We therefore wait for
+#    real messages -- not just the topic -- and restart the whole bringup on
+#    failure instead of driving a path against a filter that never localized.
+LAUNCH_PID=""
+start_bringup() {
+  ros2 launch emcl2 localization_eval.launch.py \
+    world_sdf:="$WORK/world.sdf" robot_sdf:="$WORK/robot_gt.sdf" \
+    headless_rendering:="$HEADLESS_RENDERING" > "$OUTPUT_DIR/bringup.log" 2>&1 &
+  LAUNCH_PID=$!
+}
+kill_bringup() {
+  [ -n "$LAUNCH_PID" ] && kill "$LAUNCH_PID" 2>/dev/null || true
   pkill -f "gz sim" 2>/dev/null || true
   pkill -f "parameter_bridge" 2>/dev/null || true
+  LAUNCH_PID=""
+  sleep 3  # let gz transport ports free before a restart
+}
+cleanup() {
+  kill_bringup
   rm -rf "$WORK"
 }
 trap cleanup EXIT
 
-# 3) Wait for localization to be up (both GT and estimate publishing).
-echo "[eval] waiting for /ground_truth and /mcl_pose ..."
-timeout 120 bash -c '
-  until ros2 topic list 2>/dev/null | grep -q "^/ground_truth$" \
-        && ros2 topic list 2>/dev/null | grep -q "^/mcl_pose$"; do sleep 1; done'
+# Block until one real message arrives on a topic (data, not just advertised).
+wait_for_msg() {  # $1=topic  $2=timeout_s
+  timeout "$2" ros2 topic echo "$1" --once > /dev/null 2>&1
+}
+
+localized=false
+for attempt in $(seq 1 "$RETRIES"); do
+  echo "[eval] bringup attempt $attempt/$RETRIES ..."
+  start_bringup
+  echo "[eval] waiting for /ground_truth and /mcl_pose data ..."
+  if wait_for_msg /ground_truth 120 && wait_for_msg /mcl_pose 90; then
+    localized=true
+    break
+  fi
+  echo "[eval] attempt $attempt did not localize (no data); restarting bringup ..."
+  kill_bringup
+done
+if [ "$localized" != true ]; then
+  echo "[eval] ERROR: localization did not come up after $RETRIES attempts"
+  exit 3
+fi
 # let the filter settle
 sleep 5
 
-# 4) Log poses (TUM files, flushed per line) and drive the fixed path.
+# 3) Log poses (TUM files, flushed per line) and drive the fixed path.
 GT_TUM="$OUTPUT_DIR/ground_truth.tum"
 EST_TUM="$OUTPUT_DIR/mcl_pose.tum"
 ros2 run emcl2 pose_logger.py "$GT_TUM" "$EST_TUM" > "$OUTPUT_DIR/logger.log" 2>&1 &
@@ -91,7 +122,7 @@ if [ ! -s "$GT_TUM" ] || [ ! -s "$EST_TUM" ]; then
 fi
 echo "[eval] gt samples=$(wc -l <"$GT_TUM")  est samples=$(wc -l <"$EST_TUM")"
 
-# 5) Compare with evo (no alignment: gz world frame == emcl2 map frame).
+# 4) Compare with evo (no alignment: gz world frame == emcl2 map frame).
 # Agg backend so the plots render without a display; evo writes
 # ape_plot_map.png (trajectory colored by error) and ape_plot_raw.png.
 export MPLBACKEND=Agg
