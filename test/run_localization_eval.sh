@@ -112,8 +112,19 @@ cleanup() {
 trap cleanup EXIT
 
 # Block until one real message arrives on a topic (data, not just advertised).
+# `ros2 topic echo --once` can exit immediately -- before the sim has advertised
+# the topic, or when a stale ros2-daemon cache from a previous run reports no
+# active publisher -- so a single call would give up prematurely and tear down a
+# still-starting bringup. Poll it until the overall deadline instead.
 wait_for_msg() {  # $1=topic  $2=timeout_s
-  timeout "$2" ros2 topic echo "$1" --once > /dev/null 2>&1
+  local deadline=$((SECONDS + $2))
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    if timeout 10 ros2 topic echo "$1" --once > /dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
 }
 
 GT_TUM="$OUTPUT_DIR/ground_truth.tum"
