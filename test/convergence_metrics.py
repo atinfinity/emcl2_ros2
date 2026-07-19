@@ -75,6 +75,21 @@ def associate(gt, est, max_diff=0.1):
     return pairs
 
 
+def detect_kidnap(gt, min_jump=0.5):
+    """Return the time of the largest ground-truth jump if it exceeds min_jump."""
+    # Normal driving never moves that far between samples, so a large single-step
+    # jump marks a deliberate mid-run teleport (the kidnapped-robot scenario).
+    # Returns None when no such jump is present (the ordinary recovery scenarios).
+    kidnap_t = None
+    biggest = min_jump
+    for i in range(1, len(gt)):
+        d = ((gt[i][1] - gt[i - 1][1]) ** 2 + (gt[i][2] - gt[i - 1][2]) ** 2) ** 0.5
+        if d > biggest:
+            biggest = d
+            kidnap_t = gt[i][0]
+    return kidnap_t
+
+
 def main():
     if len(sys.argv) < 3:
         sys.stderr.write('usage: convergence_metrics.py gt.tum est.tum [threshold_m]\n')
@@ -88,6 +103,14 @@ def main():
         sys.stderr.write('[convergence] no associable samples\n')
         print('converged=0 reason=no_samples')
         return 1
+
+    # If the robot was kidnapped mid-run, score the recovery from the teleport
+    # onward -- the pre-kidnap tracking is not what we are measuring.
+    kidnap_t = detect_kidnap(gt)
+    if kidnap_t is not None:
+        after = [p for p in pairs if p[0] >= kidnap_t]
+        if after:
+            pairs = after
 
     t0 = pairs[0][0]
     errs = [e for _, e in pairs]
@@ -117,24 +140,26 @@ def main():
         ttc_s = 'nan'
         post_s = 'nan'
 
+    kidnap_note = ' (from kidnap)' if kidnap_t is not None else ''
     human = (
-        '[convergence] threshold={:.2f} m  samples={}\n'
+        '[convergence] threshold={:.2f} m  samples={}{}\n'
         '  converged            : {}\n'
         '  time_to_converge_s   : {}\n'
         '  post_converge_rmse_m : {}\n'
         '  final_error_m        : {:.4f}\n'
         '  max_error_m          : {:.4f}\n'.format(
-            threshold, len(pairs), 'yes' if converged else 'NO',
+            threshold, len(pairs), kidnap_note, 'yes' if converged else 'NO',
             ttc_s if converged else 'n/a',
             post_s if converged else 'n/a',
             final_error, max_error))
     sys.stderr.write(human)
 
+    kidnapped = 1 if kidnap_t is not None else 0
     print(
         'converged={} time_to_converge_s={} post_converge_rmse_m={} '
-        'final_error_m={:.4f} max_error_m={:.4f} threshold_m={:.2f}'.format(
+        'final_error_m={:.4f} max_error_m={:.4f} threshold_m={:.2f} kidnapped={}'.format(
             1 if converged else 0, ttc_s, post_s,
-            final_error, max_error, threshold))
+            final_error, max_error, threshold, kidnapped))
     return 0
 
 
