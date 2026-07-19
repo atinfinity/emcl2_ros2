@@ -3,24 +3,39 @@
 # SPDX-FileCopyrightText: 2026 emcl2_ros2 developers
 # SPDX-License-Identifier: LGPL-3.0-or-later
 #
-# Convergence metrics for the recovery / global-localization eval scenario.
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 #
-# The tracking eval reports APE over the whole run, but for a recovery scenario
-# the estimate starts far from the truth (uniform belief or a wrong initial
-# pose) and the interesting question is *whether and how fast* it converges to
-# the true pose -- an APE average would be dominated by the pre-convergence
-# phase. This script associates the estimate with ground truth by nearest
-# timestamp and reports:
-#   converged            : did the translation error settle below the threshold
-#                          and stay there until the end of the run?
-#   time_to_converge_s   : seconds from the first sample until it did
-#   post_converge_rmse_m : RMSE of the translation error after convergence
-#   final_error_m        : translation error of the last associated sample
-#   max_error_m          : worst translation error over the run
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
 #
-# Usage: convergence_metrics.py <ground_truth.tum> <mcl_pose.tum> [threshold_m]
-# Prints a human-readable block to stderr and a single key=value line (the
-# machine-readable summary) to stdout.
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+"""
+Convergence metrics for the recovery / global-localization eval scenario.
+
+The tracking eval reports APE over the whole run, but for a recovery scenario
+the estimate starts far from the truth (uniform belief or a wrong initial
+pose) and the interesting question is *whether and how fast* it converges to
+the true pose -- an APE average would be dominated by the pre-convergence
+phase. This script associates the estimate with ground truth by nearest
+timestamp and reports:
+  converged            : did the translation error settle below the threshold
+                         and stay there until the end of the run?
+  time_to_converge_s   : seconds from the first sample until it did
+  post_converge_rmse_m : RMSE of the translation error after convergence
+  final_error_m        : translation error of the last associated sample
+  max_error_m          : worst translation error over the run
+
+Usage: convergence_metrics.py <ground_truth.tum> <mcl_pose.tum> [threshold_m]
+Prints a human-readable block to stderr and a single key=value line (the
+machine-readable summary) to stdout.
+"""
 
 import sys
 
@@ -62,7 +77,7 @@ def associate(gt, est, max_diff=0.1):
 
 def main():
     if len(sys.argv) < 3:
-        sys.stderr.write("usage: convergence_metrics.py gt.tum est.tum [threshold_m]\n")
+        sys.stderr.write('usage: convergence_metrics.py gt.tum est.tum [threshold_m]\n')
         return 2
     gt = load(sys.argv[1])
     est = load(sys.argv[2])
@@ -70,8 +85,8 @@ def main():
 
     pairs = associate(gt, est)
     if not pairs:
-        sys.stderr.write("[convergence] no associable samples\n")
-        print("converged=0 reason=no_samples")
+        sys.stderr.write('[convergence] no associable samples\n')
+        print('converged=0 reason=no_samples')
         return 1
 
     t0 = pairs[0][0]
@@ -96,31 +111,32 @@ def main():
         ttc = pairs[converge_idx][0] - t0
         tail = errs[converge_idx:]
         post_rmse = (sum(e * e for e in tail) / len(tail)) ** 0.5
+        ttc_s = '{:.2f}'.format(ttc)
+        post_s = '{:.4f}'.format(post_rmse)
     else:
-        ttc = float("nan")
-        post_rmse = float("nan")
+        ttc_s = 'nan'
+        post_s = 'nan'
 
-    sys.stderr.write(
-        "[convergence] threshold={:.2f} m  samples={}\n"
-        "  converged            : {}\n"
-        "  time_to_converge_s   : {}\n"
-        "  post_converge_rmse_m : {}\n"
-        "  final_error_m        : {:.4f}\n"
-        "  max_error_m          : {:.4f}\n".format(
-            threshold, len(pairs), "yes" if converged else "NO",
-            "{:.2f}".format(ttc) if converged else "n/a",
-            "{:.4f}".format(post_rmse) if converged else "n/a",
+    human = (
+        '[convergence] threshold={:.2f} m  samples={}\n'
+        '  converged            : {}\n'
+        '  time_to_converge_s   : {}\n'
+        '  post_converge_rmse_m : {}\n'
+        '  final_error_m        : {:.4f}\n'
+        '  max_error_m          : {:.4f}\n'.format(
+            threshold, len(pairs), 'yes' if converged else 'NO',
+            ttc_s if converged else 'n/a',
+            post_s if converged else 'n/a',
             final_error, max_error))
+    sys.stderr.write(human)
 
     print(
-        "converged={} time_to_converge_s={} post_converge_rmse_m={} "
-        "final_error_m={:.4f} max_error_m={:.4f} threshold_m={:.2f}".format(
-            1 if converged else 0,
-            "{:.2f}".format(ttc) if converged else "nan",
-            "{:.4f}".format(post_rmse) if converged else "nan",
+        'converged={} time_to_converge_s={} post_converge_rmse_m={} '
+        'final_error_m={:.4f} max_error_m={:.4f} threshold_m={:.2f}'.format(
+            1 if converged else 0, ttc_s, post_s,
             final_error, max_error, threshold))
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     sys.exit(main())
