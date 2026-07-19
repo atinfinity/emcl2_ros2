@@ -51,7 +51,8 @@ double Particle::likelihood(LikelihoodFieldMap * map, Scan & scan)
   return ans;
 }
 
-bool Particle::wallConflict(LikelihoodFieldMap * map, Scan & scan, double threshold, bool replace)
+bool Particle::wallConflict(
+  LikelihoodFieldMap * map, Scan & scan, double threshold, bool replace, bool endpoint_check)
 {
   uint16_t t = p_.get16bitRepresentation();
   double lidar_x =
@@ -84,7 +85,7 @@ bool Particle::wallConflict(LikelihoodFieldMap * map, Scan & scan, double thresh
     uint16_t a = scan.directions_16bit_[i] + t + lidar_yaw;
 
     double hit_lx = 0.0, hit_ly = 0.0;
-    if (isPenetrating(lidar_x, lidar_y, range, a, map, hit_lx, hit_ly)) {
+    if (isPenetrating(lidar_x, lidar_y, range, a, map, hit_lx, hit_ly, endpoint_check)) {
       if (hit_counter == 0) {
         hit_lx1 = hit_lx;
         hit_ly1 = hit_ly;
@@ -111,7 +112,7 @@ bool Particle::wallConflict(LikelihoodFieldMap * map, Scan & scan, double thresh
 
 bool Particle::isPenetrating(
   double ox, double oy, double range, uint16_t direction, LikelihoodFieldMap * map, double & hit_lx,
-  double & hit_ly)
+  double & hit_ly, bool endpoint_check)
 {
   bool hit = false;
   for (double d = map->resolution_; d < range; d += map->resolution_) {
@@ -123,6 +124,19 @@ bool Particle::isPenetrating(
       hit_lx = lx;
       hit_ly = ly;
     } else if (hit && map->likelihood(lx, ly) == 0.0) {              // openspace after hit
+      // The beam crossed a mapped obstacle and then open space. If it still ends
+      // (at the measured range) on a mapped obstacle, the scan is explained by a
+      // real wall behind the crossed one -- typically a stale/phantom obstacle
+      // in the map -- so this is not a genuine penetration. Only flag it when the
+      // endpoint is unexplained (open space). Guards against spurious expansion
+      // resets from an out-of-date map while still catching real conflicts.
+      if (endpoint_check) {
+        double ex = ox + range * Mcl::cos_[direction];
+        double ey = oy + range * Mcl::sin_[direction];
+        if (map->likelihood(ex, ey) == 255) {  // endpoint exactly on a mapped wall
+          return false;
+        }
+      }
       return true;                                                   // penetration
     }
   }

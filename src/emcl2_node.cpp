@@ -152,6 +152,7 @@ void EMcl2Node::declareParameter()
   this->declare_parameter("sensor_reset", false);
   this->declare_parameter("enable_expansion_resetting", true);
   this->declare_parameter("estimate_largest_cluster", false);
+  this->declare_parameter("phantom_obstacle_robustness", false);
 
   this->declare_parameter("odom_fw_dev_per_fw", 0.19);
   this->declare_parameter("odom_fw_dev_per_rot", 0.0001);
@@ -270,6 +271,10 @@ void EMcl2Node::initPF(void)
   bool estimate_largest_cluster = false;
   this->get_parameter("estimate_largest_cluster", estimate_largest_cluster);
   pf_->setEstimateLargestCluster(estimate_largest_cluster);
+
+  bool phantom_robust = false;
+  this->get_parameter("phantom_obstacle_robustness", phantom_robust);
+  pf_->setPhantomRobustness(phantom_robust);
 
   init_pf_ = true;
 }
