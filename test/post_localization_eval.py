@@ -20,17 +20,23 @@
 Post the localization-evaluation result to the pull request.
 
 Uploads the evo APE plots to the `ci-assets` branch (so they render inline)
-and posts/updates a single sticky comment on the PR with the APE stats and the
-plots. Runs from the localization CI job on same-repo pull requests. Uses only
-the GitHub REST API via urllib, so it needs no extra tooling in the container.
+and posts/updates a single sticky comment on the PR with one section per
+trajectory (APE stats, peak speeds, and plots). Runs from the localization CI
+job on same-repo pull requests. Uses only the GitHub REST API via urllib, so it
+needs no extra tooling in the container.
 
-Env: GITHUB_TOKEN, GITHUB_REPOSITORY (owner/repo), PR_NUMBER, GITHUB_RUN_ID,
-OUTPUT_DIR (directory holding ape_stats.txt / ape_plot_map.png / ape_plot_raw.png).
+Usage: post_localization_eval.py "Label=/path/to/output_dir" [...]
+  Each result dir holds ape_stats.txt / motion_stats.txt / trajectory_map.png /
+  ape_plot_raw.png. With no args it falls back to a single unlabelled section
+  from the OUTPUT_DIR env var.
+
+Env: GITHUB_TOKEN, GITHUB_REPOSITORY (owner/repo), PR_NUMBER, GITHUB_RUN_ID.
 """
 
 import base64
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -75,51 +81,66 @@ def upload_asset(repo, token, local_path, remote_path):
     return f'https://raw.githubusercontent.com/{repo}/{ASSETS_BRANCH}/{remote_path}'
 
 
+def read_ape(out):
+    raw = open(os.path.join(out, 'ape_stats.txt')).read().splitlines()
+    start = next((i for i, ln in enumerate(raw) if ln.startswith('APE')), 0)
+    return '\n'.join(
+        ln for ln in raw[start:]
+        if 'QStandardPaths' not in ln and 'Plot saved' not in ln).strip()
+
+
+def section(repo, token, pr, label, out):
+    """Build the markdown block for one trajectory's result (uploads its plots)."""
+    slug = re.sub(r'[^a-z0-9]+', '', label.lower()) or 'run'
+    parts = []
+    if label:
+        parts.append(f'### {label}\n\n')
+    try:
+        parts.append(f'```\n{read_ape(out)}\n```\n\n')
+    except OSError:
+        parts.append('_APE stats unavailable (run did not produce them)._\n\n')
+
+    motion_path = os.path.join(out, 'motion_stats.txt')
+    if os.path.exists(motion_path):
+        text = open(motion_path).read().strip()
+        if text:
+            parts.append(f'**Peak speeds / path length (ground truth):**\n\n```\n{text}\n```\n\n')
+
+    traj_path = os.path.join(out, 'trajectory_map.png')
+    if os.path.exists(traj_path):
+        url = upload_asset(repo, token, traj_path, f'pr{pr}_{slug}_traj_map.png')
+        parts.append(
+            '**Trajectory over the occupancy map (dashed = ground truth, '
+            f'estimate colored by APE):**\n\n![{slug} trajectory on map]({url})\n\n')
+
+    raw_path = os.path.join(out, 'ape_plot_raw.png')
+    if os.path.exists(raw_path):
+        url = upload_asset(repo, token, raw_path, f'pr{pr}_{slug}_ape_raw.png')
+        parts.append(f'**APE over time:**\n\n![{slug} APE over time]({url})\n\n')
+    return ''.join(parts)
+
+
 def main():
     token = os.environ['GITHUB_TOKEN']
     repo = os.environ['GITHUB_REPOSITORY']
     pr = os.environ['PR_NUMBER']
     run_id = os.environ.get('GITHUB_RUN_ID', '')
-    out = os.environ['OUTPUT_DIR']
 
-    raw = open(os.path.join(out, 'ape_stats.txt')).read().splitlines()
-    start = next((i for i, ln in enumerate(raw) if ln.startswith('APE')), 0)
-    stats = '\n'.join(
-        ln for ln in raw[start:]
-        if 'QStandardPaths' not in ln and 'Plot saved' not in ln).strip()
+    # "Label=dir" pairs; fall back to a single unlabelled OUTPUT_DIR section.
+    runs = []
+    for arg in sys.argv[1:]:
+        label, _, path = arg.partition('=')
+        runs.append((label.strip(), path.strip()))
+    if not runs:
+        runs = [('', os.environ['OUTPUT_DIR'])]
 
-    # Peak speeds / path length driven (if motion_stats.py produced them).
-    motion = ''
-    motion_path = os.path.join(out, 'motion_stats.txt')
-    if os.path.exists(motion_path):
-        text = open(motion_path).read().strip()
-        if text:
-            motion = f'**Trajectory motion (ground truth):**\n\n```\n{text}\n```\n\n'
-    map_url = upload_asset(
-        repo, token, os.path.join(out, 'ape_plot_map.png'), f'pr{pr}_ape_map.png')
-    raw_url = upload_asset(
-        repo, token, os.path.join(out, 'ape_plot_raw.png'), f'pr{pr}_ape_raw.png')
-
-    # Trajectories drawn over the occupancy map (skipped if the plot is absent).
-    traj_section = ''
-    traj_path = os.path.join(out, 'trajectory_map.png')
-    if os.path.exists(traj_path):
-        traj_url = upload_asset(repo, token, traj_path, f'pr{pr}_traj_map.png')
-        traj_section = (
-            '**Trajectory over the occupancy map (dashed = ground truth, '
-            'estimate colored by APE):**\n\n'
-            f'![trajectory on map]({traj_url})\n\n')
-
+    blocks = ''.join(section(repo, token, pr, label, out) for label, out in runs)
     body = (
         f'{MARKER}\n'
         '## localization CI: APE (emcl2 vs Gazebo ground truth)\n\n'
-        f'```\n{stats}\n```\n\n'
-        f'{motion}'
-        f'{traj_section}'
-        f'**Trajectory colored by APE (dashed = ground truth):**\n\n'
-        f'![APE map]({map_url})\n\n'
-        f'**APE over time:**\n\n'
-        f'![APE over time]({raw_url})\n\n'
+        'Accuracy across trajectory shapes -- straight lawnmower, sustained '
+        'arc, and in-place rotation.\n\n'
+        f'{blocks}'
         f'<sub>generated by CI run {run_id}</sub>'
     )
 
