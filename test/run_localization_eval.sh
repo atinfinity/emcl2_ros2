@@ -55,6 +55,16 @@ KIDNAP_X="${KIDNAP_X:-1.0}"
 KIDNAP_Y="${KIDNAP_Y:-1.0}"
 KIDNAP_YAW="${KIDNAP_YAW:-1.0}"
 
+# Map/world mismatch: make the simulated world and emcl2's map disagree, to
+# probe robustness to stale/edited maps.
+#   WORLD_ADD_BOXES="x,y,sx,sy;..."   inject box obstacles into the world only
+#                                     (obstacles the map does not have).
+#   MAP_ADD_OBSTACLES="x,y,sx,sy;..." draw obstacles onto the map only (phantom
+#                                     obstacles the world does not have).
+# Both take world-metre centres and footprints; default empty (matched map).
+WORLD_ADD_BOXES="${WORLD_ADD_BOXES:-}"
+MAP_ADD_OBSTACLES="${MAP_ADD_OBSTACLES:-}"
+
 echo "[eval] HEADLESS_RENDERING=$HEADLESS_RENDERING  OUTPUT_DIR=$OUTPUT_DIR  RETRIES=$RETRIES"
 echo "[eval] SCENARIO=$SCENARIO  TRIGGER_GLOBAL_LOC=$TRIGGER_GLOBAL_LOC  PARAMS_FILE=${PARAMS_FILE:-<launch default>}"
 echo "[eval] WORLD_XACRO=$WORLD_XACRO  MAP_YAML=${MAP_YAML:-<launch default>}  ROBOT=($ROBOT_X,$ROBOT_Y,$ROBOT_YAW)"
@@ -86,6 +96,38 @@ plugin = '''    <plugin filename="gz-sim-odometry-publisher-system" name="gz::si
 i = s.rfind('</model>')
 open(dst, 'w').write(s[:i] + plugin + s[i:])
 PY
+
+# 1b) Optionally desync the world and the map (map/world mismatch eval).
+if [ -n "$WORLD_ADD_BOXES" ]; then
+  echo "[eval] adding world-only boxes: $WORLD_ADD_BOXES"
+  python3 - "$WORK/world.sdf" "$WORLD_ADD_BOXES" <<'PY'
+import sys
+world, spec = sys.argv[1], sys.argv[2]
+s = open(world).read()
+blocks = ''
+for k, box in enumerate(spec.split(';')):
+    box = box.strip()
+    if not box:
+        continue
+    x, y, sx, sy = (float(v) for v in box.split(','))
+    blocks += (
+        '    <model name="unmapped_box_{k}"><static>1</static>\n'
+        '      <link name="link"><pose>{x} {y} 0.25 0 0 0</pose>\n'
+        '        <collision name="c"><geometry><box><size>{sx} {sy} 0.5</size></box>'
+        '</geometry></collision>\n'
+        '        <visual name="v"><geometry><box><size>{sx} {sy} 0.5</size></box>'
+        '</geometry></visual>\n'
+        '      </link></model>\n').format(k=k, x=x, y=y, sx=sx, sy=sy)
+i = s.rfind('</world>')
+open(world, 'w').write(s[:i] + blocks + s[i:])
+PY
+fi
+if [ -n "$MAP_ADD_OBSTACLES" ]; then
+  echo "[eval] adding map-only obstacles: $MAP_ADD_OBSTACLES"
+  BASE_MAP="${MAP_YAML:-$(ros2 pkg prefix --share nav2_bringup)/maps/tb3_sandbox.yaml}"
+  MAP_YAML=$(ros2 run emcl2 add_map_obstacles.py "$BASE_MAP" "$WORK" "$MAP_ADD_OBSTACLES" 2>/dev/null) ||
+    { echo "[eval] ERROR: failed to build mismatch map"; exit 1; }
+fi
 
 # 2) Bring up sim + emcl2, retrying if localization does not actually start.
 #    A transient lifecycle/map startup race can leave emcl2 advertising

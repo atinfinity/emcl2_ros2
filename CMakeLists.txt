@@ -69,6 +69,7 @@ install(PROGRAMS
   test/test_gui.bash
   test/drive_path.py
   test/pose_logger.py
+  test/add_map_obstacles.py
   test/convergence_metrics.py
   test/plot_convergence.py
   test/post_recovery_eval.py
