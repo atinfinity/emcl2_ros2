@@ -35,8 +35,19 @@ mkdir -p "$OUTPUT_DIR"
 SIM=$(ros2 pkg prefix --share nav2_minimal_tb3_sim)
 EMCL2=$(ros2 pkg prefix --share emcl2)
 
+# World xacro to simulate and the matching map (defaults: the tb3_sandbox world
+# and its map). Override both together to evaluate on a different environment,
+# e.g. emcl2's symmetric_room world for persistent multi-modality. ROBOT_{X,Y,YAW}
+# place the ground-truth robot spawn (and must sit in that world's free space).
+WORLD_XACRO="${WORLD_XACRO:-$SIM/worlds/tb3_sandbox.sdf.xacro}"
+MAP_YAML="${MAP_YAML:-}"
+ROBOT_X="${ROBOT_X:--2.0}"
+ROBOT_Y="${ROBOT_Y:--0.5}"
+ROBOT_YAW="${ROBOT_YAW:-0.0}"
+
 echo "[eval] HEADLESS_RENDERING=$HEADLESS_RENDERING  OUTPUT_DIR=$OUTPUT_DIR  RETRIES=$RETRIES"
 echo "[eval] SCENARIO=$SCENARIO  TRIGGER_GLOBAL_LOC=$TRIGGER_GLOBAL_LOC  PARAMS_FILE=${PARAMS_FILE:-<launch default>}"
+echo "[eval] WORLD_XACRO=$WORLD_XACRO  MAP_YAML=${MAP_YAML:-<launch default>}  ROBOT=($ROBOT_X,$ROBOT_Y,$ROBOT_YAW)"
 
 if [ "$HEADLESS_RENDERING" = "true" ]; then
   # GPU-less software rendering for gz's ogre2 sensors.
@@ -48,7 +59,7 @@ fi
 
 # 1) Expand the world (headless, no SceneBroadcaster) and the robot SDF, then
 #    inject a ground-truth OdometryPublisher into the robot.
-xacro -o "$WORK/world.sdf" headless:=true "$SIM/worlds/tb3_sandbox.sdf.xacro"
+xacro -o "$WORK/world.sdf" headless:=true "$WORLD_XACRO"
 xacro "$SIM/urdf/gz_waffle.sdf.xacro" > "$WORK/robot_plain.sdf"
 python3 - "$WORK/robot_plain.sdf" "$WORK/robot_gt.sdf" <<'PY'
 import sys
@@ -85,9 +96,13 @@ start_bringup() {  # $1 = attempt number (for a per-attempt log)
   # attempt (duplicate node names and bonds) and pile up across repeated runs.
   local params_arg=""
   [ -n "$PARAMS_FILE" ] && params_arg="params_file:=$PARAMS_FILE"
+  local map_arg=""
+  [ -n "$MAP_YAML" ] && map_arg="map:=$MAP_YAML"
   setsid ros2 launch emcl2 localization_eval.launch.py \
     world_sdf:="$WORK/world.sdf" robot_sdf:="$WORK/robot_gt.sdf" \
-    headless_rendering:="$HEADLESS_RENDERING" $params_arg > "$BRINGUP_LOG" 2>&1 &
+    headless_rendering:="$HEADLESS_RENDERING" $params_arg $map_arg \
+    robot_x:="$ROBOT_X" robot_y:="$ROBOT_Y" robot_yaw:="$ROBOT_YAW" \
+    > "$BRINGUP_LOG" 2>&1 &
   LAUNCH_PID=$!
 }
 kill_bringup() {

@@ -81,6 +81,8 @@ ament_auto_package(
   INSTALL_TO_SHARE
   config
   launch
+  maps
   rviz
   test
+  worlds
 )

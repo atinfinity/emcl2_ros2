@@ -53,6 +53,9 @@ def generate_launch_description():
     headless_rendering = LaunchConfiguration('headless_rendering')
     map_yaml = LaunchConfiguration('map')
     params_file = LaunchConfiguration('params_file')
+    robot_x = LaunchConfiguration('robot_x')
+    robot_y = LaunchConfiguration('robot_y')
+    robot_yaw = LaunchConfiguration('robot_yaw')
 
     declare_world = DeclareLaunchArgument(
         'world_sdf', description='Full path to the (already xacro-expanded) world SDF'
@@ -73,6 +76,9 @@ def generate_launch_description():
         'params_file',
         default_value=os.path.join(emcl2_dir, 'config', 'emcl2_quick_start.param.yaml'),
     )
+    declare_robot_x = DeclareLaunchArgument('robot_x', default_value='-2.0')
+    declare_robot_y = DeclareLaunchArgument('robot_y', default_value='-0.5')
+    declare_robot_yaw = DeclareLaunchArgument('robot_yaw', default_value='0.0')
 
     # world model:// includes (turtlebot3_world) resolve via GZ_SIM_RESOURCE_PATH.
     set_resources = AppendEnvironmentVariable(
@@ -99,7 +105,7 @@ def generate_launch_description():
         output='screen',
         arguments=[
             '-world', 'default', '-name', 'turtlebot3_waffle',
-            '-x', '-2.0', '-y', '-0.5', '-z', '0.01',
+            '-x', robot_x, '-y', robot_y, '-z', '0.01', '-Y', robot_yaw,
             '-file', robot_sdf,
         ],
     )
@@ -157,6 +163,9 @@ def generate_launch_description():
     ld.add_action(declare_headless_rendering)
     ld.add_action(declare_map)
     ld.add_action(declare_params)
+    ld.add_action(declare_robot_x)
+    ld.add_action(declare_robot_y)
+    ld.add_action(declare_robot_yaw)
     ld.add_action(set_resources)
     ld.add_action(set_resources_parent)
     ld.add_action(spawn_robot)
