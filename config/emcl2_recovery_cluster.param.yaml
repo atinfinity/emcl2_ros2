@@ -1,0 +1,33 @@
+/**:
+  ros__parameters:
+    transform_tolerance: 0.2
+    global_frame_id: "map"
+    odom_frame_id: "odom"
+    base_frame_id: "base_link"
+    footprint_frame_id: "base_footprint"
+    laser_min_range: 0.0
+    laser_max_range: 100000000.0
+    scan_increment: 1
+    initial_pose_x: -2.0
+    initial_pose_y: -0.5
+    initial_pose_a: 0.0
+    num_particles: 2000
+    alpha_threshold: 0.5
+    expansion_radius_position: 0.1
+    expansion_radius_orientation: 0.2
+    extraction_rate: 0.1
+    range_threshold: 0.3
+    sensor_reset: true
+    enable_expansion_resetting: true
+    # Report the pose of the largest particle cluster (the dominant mode) instead
+    # of the mean over all particles. Under a multi-modal belief -- e.g. the
+    # symmetric_room world where a pose and its 180 deg twin are indistinguishable
+    # -- the plain mean falls between the modes (a pose matching neither), while
+    # the cluster estimate returns one real mode. Same as emcl2_recovery.param.yaml
+    # otherwise, so the two can be A/B compared.
+    estimate_largest_cluster: true
+    odom_fw_dev_per_fw: 0.19
+    odom_fw_dev_per_rot: 0.0001
+    odom_rot_dev_per_fw: 0.13
+    odom_rot_dev_per_rot: 0.2
+    laser_likelihood_max_dist: 0.1

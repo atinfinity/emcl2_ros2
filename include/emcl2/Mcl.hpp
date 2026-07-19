@@ -55,6 +55,12 @@ public:
     double & x_mean, double & y_mean, double & t_mean, double & x_var, double & y_var,
     double & t_var, double & xy_cov, double & yt_cov, double & tx_cov);
 
+  // When true, meanPose() reports the pose of the largest spatial cluster of
+  // particles (the dominant mode) instead of the mean over all particles. Under
+  // a multi-modal belief the plain mean falls between the modes -- a pose that
+  // matches none of them -- while the cluster estimate returns one real mode.
+  void setEstimateLargestCluster(bool v) {estimate_largest_cluster_ = v;}
+
   void simpleReset(void);
   void clearProcessedScan(void) {processed_seq_ = -1;}
 
@@ -74,6 +80,10 @@ protected:
   void resampling(void);
   double normalizeBelief(void);
   void resetWeight(void);
+
+  bool estimate_largest_cluster_ = false;
+  // Collect the particles belonging to the densest spatial cluster.
+  void largestClusterParticles(std::vector<const Particle *> & out);
 
   std::shared_ptr<OdomModel> odom_model_;
   std::shared_ptr<LikelihoodFieldMap> map_;

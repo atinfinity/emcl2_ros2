@@ -151,6 +151,7 @@ void EMcl2Node::declareParameter()
   this->declare_parameter("range_threshold", 0.1);
   this->declare_parameter("sensor_reset", false);
   this->declare_parameter("enable_expansion_resetting", true);
+  this->declare_parameter("estimate_largest_cluster", false);
 
   this->declare_parameter("odom_fw_dev_per_fw", 0.19);
   this->declare_parameter("odom_fw_dev_per_rot", 0.0001);
@@ -265,6 +266,10 @@ void EMcl2Node::initPF(void)
   pf_.reset(new ExpResetMcl2(
           init_pose, num_particles, scan, om, map, alpha_th, ex_rad_pos, ex_rad_ori,
           extraction_rate, range_threshold, sensor_reset, enable_expansion_resetting));
+
+  bool estimate_largest_cluster = false;
+  this->get_parameter("estimate_largest_cluster", estimate_largest_cluster);
+  pf_->setEstimateLargestCluster(estimate_largest_cluster);
 
   init_pf_ = true;
 }
