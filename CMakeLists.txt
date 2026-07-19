@@ -70,6 +70,7 @@ install(PROGRAMS
   test/drive_path.py
   test/pose_logger.py
   test/convergence_metrics.py
+  test/plot_convergence.py
   test/post_recovery_eval.py
   test/run_localization_eval.sh
   test/composition_smoke_test.sh

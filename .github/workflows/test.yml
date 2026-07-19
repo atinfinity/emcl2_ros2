@@ -151,6 +151,13 @@ jobs:
               OUTPUT_DIR=/root/ros2_ws/recovery_b/run$i \
               bash install/emcl2/share/emcl2/test/run_localization_eval.sh || true
           done
+          export MPLBACKEND=Agg
+          python3 $GITHUB_WORKSPACE/test/plot_convergence.py \
+            /root/ros2_ws/recovery_a /root/ros2_ws/recovery_a/convergence_plot.png \
+            0.3 "Global localization (A)" || true
+          python3 $GITHUB_WORKSPACE/test/plot_convergence.py \
+            /root/ros2_ws/recovery_b /root/ros2_ws/recovery_b/convergence_plot.png \
+            0.3 "Wrong initial pose (B)" || true
         shell: bash
       - name: Upload recovery results
         if: always()
