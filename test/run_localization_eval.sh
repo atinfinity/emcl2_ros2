@@ -45,6 +45,16 @@ ROBOT_X="${ROBOT_X:--2.0}"
 ROBOT_Y="${ROBOT_Y:--0.5}"
 ROBOT_YAW="${ROBOT_YAW:-0.0}"
 
+# Mid-run kidnap: KIDNAP_AT seconds into the drive, teleport the robot (and thus
+# ground truth) to KIDNAP_{X,Y,YAW} via the gz set_pose service, so emcl2 must
+# detect the sudden mismatch and recover through Sensor Resetting. Empty = off.
+# Score it with SCENARIO=recovery; convergence_metrics.py measures the recovery
+# from the teleport (it detects the ground-truth jump automatically).
+KIDNAP_AT="${KIDNAP_AT:-}"
+KIDNAP_X="${KIDNAP_X:-1.0}"
+KIDNAP_Y="${KIDNAP_Y:-1.0}"
+KIDNAP_YAW="${KIDNAP_YAW:-1.0}"
+
 echo "[eval] HEADLESS_RENDERING=$HEADLESS_RENDERING  OUTPUT_DIR=$OUTPUT_DIR  RETRIES=$RETRIES"
 echo "[eval] SCENARIO=$SCENARIO  TRIGGER_GLOBAL_LOC=$TRIGGER_GLOBAL_LOC  PARAMS_FILE=${PARAMS_FILE:-<launch default>}"
 echo "[eval] WORLD_XACRO=$WORLD_XACRO  MAP_YAML=${MAP_YAML:-<launch default>}  ROBOT=($ROBOT_X,$ROBOT_Y,$ROBOT_YAW)"
@@ -125,6 +135,18 @@ cleanup() {
   rm -rf "$WORK"
 }
 trap cleanup EXIT
+
+# Teleport the robot mid-run via the gz set_pose service (kidnapped robot).
+kidnap_robot() {
+  local qz qw
+  qz=$(python3 -c "import math; print(math.sin($KIDNAP_YAW / 2.0))")
+  qw=$(python3 -c "import math; print(math.cos($KIDNAP_YAW / 2.0))")
+  echo "[eval] kidnapping robot to ($KIDNAP_X, $KIDNAP_Y, $KIDNAP_YAW) ..."
+  gz service -s /world/default/set_pose \
+    --reqtype gz.msgs.Pose --reptype gz.msgs.Boolean --timeout 5000 \
+    --req "name: 'turtlebot3_waffle', position: {x: $KIDNAP_X, y: $KIDNAP_Y, z: 0.01}, orientation: {z: $qz, w: $qw}" \
+    > /dev/null 2>&1 || echo "[eval] WARN: kidnap set_pose failed"
+}
 
 # Block until one real message arrives on a topic (data, not just advertised).
 # `ros2 topic echo --once` can exit immediately -- before the sim has advertised
@@ -214,6 +236,10 @@ run_attempt() {  # $1 = attempt number
     sleep 1
   fi
 
+  if [ -n "$KIDNAP_AT" ]; then
+    # Fire the teleport KIDNAP_AT seconds into the drive, concurrently with it.
+    ( sleep "$KIDNAP_AT"; kidnap_robot ) &
+  fi
   echo "[eval] driving fixed path ..."
   ros2 run emcl2 drive_path.py
   sleep 2
