@@ -29,6 +29,10 @@ PARAMS_FILE="${PARAMS_FILE:-}"
 TRIGGER_GLOBAL_LOC="${TRIGGER_GLOBAL_LOC:-false}"
 # Translation error (m) under which the recovery scenario counts as converged.
 CONVERGE_THRESHOLD="${CONVERGE_THRESHOLD:-0.3}"
+# Trajectory shape driven during the run: full (whole-area lawnmower, mostly
+# straight), arcs (orbit a clear circle -- sustained arc motion), or spin
+# (in-place rotation only). See drive_path.py.
+DRIVE_PATH="${DRIVE_PATH:-full}"
 WORK="$(mktemp -d)"
 mkdir -p "$OUTPUT_DIR"
 
@@ -66,7 +70,7 @@ WORLD_ADD_BOXES="${WORLD_ADD_BOXES:-}"
 MAP_ADD_OBSTACLES="${MAP_ADD_OBSTACLES:-}"
 
 echo "[eval] HEADLESS_RENDERING=$HEADLESS_RENDERING  OUTPUT_DIR=$OUTPUT_DIR  RETRIES=$RETRIES"
-echo "[eval] SCENARIO=$SCENARIO  TRIGGER_GLOBAL_LOC=$TRIGGER_GLOBAL_LOC  PARAMS_FILE=${PARAMS_FILE:-<launch default>}"
+echo "[eval] SCENARIO=$SCENARIO  DRIVE_PATH=$DRIVE_PATH  TRIGGER_GLOBAL_LOC=$TRIGGER_GLOBAL_LOC  PARAMS_FILE=${PARAMS_FILE:-<launch default>}"
 echo "[eval] WORLD_XACRO=$WORLD_XACRO  MAP_YAML=${MAP_YAML:-<launch default>}  ROBOT=($ROBOT_X,$ROBOT_Y,$ROBOT_YAW)"
 
 if [ "$HEADLESS_RENDERING" = "true" ]; then
@@ -282,8 +286,8 @@ run_attempt() {  # $1 = attempt number
     # Fire the teleport KIDNAP_AT seconds into the drive, concurrently with it.
     ( sleep "$KIDNAP_AT"; kidnap_robot ) &
   fi
-  echo "[eval] driving fixed path ..."
-  ros2 run emcl2 drive_path.py
+  echo "[eval] driving fixed path (DRIVE_PATH=$DRIVE_PATH) ..."
+  ros2 run emcl2 drive_path.py "$DRIVE_PATH"
   sleep 2
   kill -INT "$log_pid" 2>/dev/null || true
   sleep 2

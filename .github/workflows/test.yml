@@ -96,21 +96,31 @@ jobs:
           colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
         shell: bash
       - name: Run localization evaluation (headless sim + emcl2 vs ground truth)
+        # APE tracking across trajectory shapes: a straight-heavy lawnmower, a
+        # sustained arc (orbit a clear circle), and in-place rotation only. Each
+        # exercises a different motion profile for the same emcl2 pipeline.
         run: |
           cd /root/ros2_ws
           source /opt/ros/$ROS_DISTRO/setup.bash
           source install/setup.bash
           export PATH="$HOME/.local/bin:$PATH"
           export HEADLESS_RENDERING=true
-          export OUTPUT_DIR=/root/ros2_ws/localization_eval_output
-          bash install/emcl2/share/emcl2/test/run_localization_eval.sh
+          for shape in full arcs spin; do
+            echo "== tracking trajectory: $shape =="
+            DRIVE_PATH=$shape \
+              OUTPUT_DIR=/root/ros2_ws/localization_eval_$shape \
+              bash install/emcl2/share/emcl2/test/run_localization_eval.sh
+          done
         shell: bash
       - name: Upload evo results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: localization-eval
-          path: /root/ros2_ws/localization_eval_output/
+          path: |
+            /root/ros2_ws/localization_eval_full/
+            /root/ros2_ws/localization_eval_arcs/
+            /root/ros2_ws/localization_eval_spin/
           if-no-files-found: warn
       - name: Post evo result to the PR
         if: >-
@@ -121,8 +131,11 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_RUN_ID: ${{ github.run_id }}
-          OUTPUT_DIR: /root/ros2_ws/localization_eval_output
-        run: python3 $GITHUB_WORKSPACE/test/post_localization_eval.py
+        run: |
+          python3 $GITHUB_WORKSPACE/test/post_localization_eval.py \
+            "Lawnmower tour (straight)=/root/ros2_ws/localization_eval_full" \
+            "Arc orbit (translate + rotate)=/root/ros2_ws/localization_eval_arcs" \
+            "In-place rotation only=/root/ros2_ws/localization_eval_spin"
         shell: bash
       - name: Run recovery scenarios (global localization + wrong initial pose)
         # Informational: measures how well/fast emcl2 recovers a correct pose
