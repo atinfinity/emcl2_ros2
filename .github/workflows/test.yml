@@ -126,26 +126,31 @@ jobs:
         shell: bash
       - name: Run recovery scenarios (global localization + wrong initial pose)
         # Informational: measures how well/fast emcl2 recovers a correct pose
-        # from a wrong / uniform belief. A non-convergence is a result, not a
-        # failure, so this must not gate the PR.
+        # from a wrong / uniform belief. Convergence is stochastic, so run each
+        # scenario RECOVERY_RUNS times and report success rate + medians. A
+        # non-convergence is a result, not a failure, so this must not gate.
         continue-on-error: true
+        env:
+          RECOVERY_RUNS: "3"
         run: |
           cd /root/ros2_ws
           source /opt/ros/$ROS_DISTRO/setup.bash
           source install/setup.bash
           export PATH="$HOME/.local/bin:$PATH"
-          export HEADLESS_RENDERING=true SCENARIO=recovery
+          export HEADLESS_RENDERING=true
           CFG=/root/ros2_ws/install/emcl2/share/emcl2/config
-          echo "== scenario A: uniform global localization =="
-          SCENARIO=recovery TRIGGER_GLOBAL_LOC=true \
-            PARAMS_FILE=$CFG/emcl2_recovery.param.yaml \
-            OUTPUT_DIR=/root/ros2_ws/recovery_a_output \
-            bash install/emcl2/share/emcl2/test/run_localization_eval.sh || true
-          echo "== scenario B: kidnapped-at-start (wrong initial pose) =="
-          SCENARIO=recovery TRIGGER_GLOBAL_LOC=false \
-            PARAMS_FILE=$CFG/emcl2_recovery_wrong_init.param.yaml \
-            OUTPUT_DIR=/root/ros2_ws/recovery_b_output \
-            bash install/emcl2/share/emcl2/test/run_localization_eval.sh || true
+          for i in $(seq 1 "$RECOVERY_RUNS"); do
+            echo "== scenario A run $i/$RECOVERY_RUNS: uniform global localization =="
+            SCENARIO=recovery TRIGGER_GLOBAL_LOC=true \
+              PARAMS_FILE=$CFG/emcl2_recovery.param.yaml \
+              OUTPUT_DIR=/root/ros2_ws/recovery_a/run$i \
+              bash install/emcl2/share/emcl2/test/run_localization_eval.sh || true
+            echo "== scenario B run $i/$RECOVERY_RUNS: kidnapped-at-start =="
+            SCENARIO=recovery TRIGGER_GLOBAL_LOC=false \
+              PARAMS_FILE=$CFG/emcl2_recovery_wrong_init.param.yaml \
+              OUTPUT_DIR=/root/ros2_ws/recovery_b/run$i \
+              bash install/emcl2/share/emcl2/test/run_localization_eval.sh || true
+          done
         shell: bash
       - name: Upload recovery results
         if: always()
@@ -153,8 +158,8 @@ jobs:
         with:
           name: recovery-eval
           path: |
-            /root/ros2_ws/recovery_a_output/
-            /root/ros2_ws/recovery_b_output/
+            /root/ros2_ws/recovery_a/
+            /root/ros2_ws/recovery_b/
           if-no-files-found: warn
       - name: Post recovery result to the PR
         if: >-
@@ -168,6 +173,6 @@ jobs:
           GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
           python3 $GITHUB_WORKSPACE/test/post_recovery_eval.py \
-            "Global localization (A)=/root/ros2_ws/recovery_a_output" \
-            "Wrong initial pose (B)=/root/ros2_ws/recovery_b_output"
+            "Global localization (A)=/root/ros2_ws/recovery_a" \
+            "Wrong initial pose (B)=/root/ros2_ws/recovery_b"
         shell: bash
