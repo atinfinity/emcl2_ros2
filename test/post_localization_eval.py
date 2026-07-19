@@ -87,6 +87,14 @@ def main():
     stats = '\n'.join(
         ln for ln in raw[start:]
         if 'QStandardPaths' not in ln and 'Plot saved' not in ln).strip()
+
+    # Peak speeds / path length driven (if motion_stats.py produced them).
+    motion = ''
+    motion_path = os.path.join(out, 'motion_stats.txt')
+    if os.path.exists(motion_path):
+        text = open(motion_path).read().strip()
+        if text:
+            motion = f'**Trajectory motion (ground truth):**\n\n```\n{text}\n```\n\n'
     map_url = upload_asset(
         repo, token, os.path.join(out, 'ape_plot_map.png'), f'pr{pr}_ape_map.png')
     raw_url = upload_asset(
@@ -106,6 +114,7 @@ def main():
         f'{MARKER}\n'
         '## localization CI: APE (emcl2 vs Gazebo ground truth)\n\n'
         f'```\n{stats}\n```\n\n'
+        f'{motion}'
         f'{traj_section}'
         f'**Trajectory colored by APE (dashed = ground truth):**\n\n'
         f'![APE map]({map_url})\n\n'

@@ -351,6 +351,11 @@ else
   ros2 run emcl2 plot_trajectory_on_map.py "$GT_TUM" "$EST_TUM" "$plot_map" \
     "$OUTPUT_DIR/trajectory_map.png" "emcl2 estimate vs ground truth on map" > /dev/null 2>&1 ||
     echo "[eval] WARN: trajectory-on-map plot failed"
+
+  # Peak linear/angular speed and path length actually driven (from ground truth).
+  ros2 run emcl2 motion_stats.py "$GT_TUM" > "$OUTPUT_DIR/motion_stats.txt" 2>/dev/null ||
+    echo "[eval] WARN: motion stats failed"
+  cat "$OUTPUT_DIR/motion_stats.txt" 2>/dev/null || true
 fi
 
 echo "[eval] done (rc=$RESULT_RC). Artifacts in $OUTPUT_DIR"

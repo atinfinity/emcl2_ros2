@@ -71,6 +71,7 @@ install(PROGRAMS
   test/pose_logger.py
   test/add_map_obstacles.py
   test/convergence_metrics.py
+  test/motion_stats.py
   test/plot_convergence.py
   test/plot_trajectory_on_map.py
   test/post_recovery_eval.py
