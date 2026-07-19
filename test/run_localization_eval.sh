@@ -70,6 +70,7 @@ kill_bringup() {
   [ -n "$LAUNCH_PID" ] && kill "$LAUNCH_PID" 2>/dev/null || true
   pkill -f "gz sim" 2>/dev/null || true
   pkill -f "parameter_bridge" 2>/dev/null || true
+  pkill -f "pose_logger.py" 2>/dev/null || true
   LAUNCH_PID=""
   sleep 3  # let gz transport ports free before a restart
 }
@@ -84,43 +85,84 @@ wait_for_msg() {  # $1=topic  $2=timeout_s
   timeout "$2" ros2 topic echo "$1" --once > /dev/null 2>&1
 }
 
-localized=false
-for attempt in $(seq 1 "$RETRIES"); do
-  echo "[eval] bringup attempt $attempt/$RETRIES ..."
-  start_bringup
-  echo "[eval] waiting for /ground_truth and /mcl_pose data ..."
-  if wait_for_msg /ground_truth 120 && wait_for_msg /mcl_pose 90; then
-    localized=true
-    break
-  fi
-  echo "[eval] attempt $attempt did not localize (no data); restarting bringup ..."
-  kill_bringup
-done
-if [ "$localized" != true ]; then
-  echo "[eval] ERROR: localization did not come up after $RETRIES attempts"
-  exit 3
-fi
-# let the filter settle
-sleep 5
-
-# 3) Log poses (TUM files, flushed per line) and drive the fixed path.
 GT_TUM="$OUTPUT_DIR/ground_truth.tum"
 EST_TUM="$OUTPUT_DIR/mcl_pose.tum"
-ros2 run emcl2 pose_logger.py "$GT_TUM" "$EST_TUM" > "$OUTPUT_DIR/logger.log" 2>&1 &
-LOG_PID=$!
-sleep 2
-echo "[eval] driving fixed path ..."
-ros2 run emcl2 drive_path.py
-sleep 2
-kill -INT "$LOG_PID" 2>/dev/null || true
-sleep 2
-kill -9 "$LOG_PID" 2>/dev/null || true
 
-if [ ! -s "$GT_TUM" ] || [ ! -s "$EST_TUM" ]; then
-  echo "[eval] ERROR: pose logs are empty (gt=$(wc -l <"$GT_TUM" 2>/dev/null) est=$(wc -l <"$EST_TUM" 2>/dev/null))"
-  exit 1
+# Fraction of the ground-truth time span that the estimate overlaps. emcl2 can
+# stall part way through a run (e.g. a TF/sim-time hiccup drops all scans), and
+# comparing only the early overlap would yield a misleadingly low APE. Returns
+# 0 when either trajectory is missing or empty.
+coverage() {
+  python3 - "$GT_TUM" "$EST_TUM" <<'PY'
+import sys
+def span(f):
+    try:
+        ts = [float(l.split()[0]) for l in open(f) if l.strip()]
+    except OSError:
+        ts = []
+    return (ts[0], ts[-1]) if ts else None
+gt = span(sys.argv[1])
+est = span(sys.argv[2])
+if not gt or not est or gt[1] <= gt[0]:
+    print("0.000")
+    raise SystemExit
+overlap = max(0.0, min(gt[1], est[1]) - max(gt[0], est[0]))
+print(f"{overlap / (gt[1] - gt[0]):.3f}")
+PY
+}
+
+# One full evaluation attempt: bring up, wait for real data, drive the path
+# while logging, and require the estimate to span (>=90% of) the ground-truth
+# window. Returns 0 only on a clean, fully-covered run.
+run_attempt() {
+  start_bringup
+  echo "[eval] waiting for /ground_truth and /mcl_pose data ..."
+  if ! { wait_for_msg /ground_truth 120 && wait_for_msg /mcl_pose 90; }; then
+    echo "[eval] no data (localization did not come up)"
+    return 1
+  fi
+  sleep 5  # let the filter settle
+
+  : > "$GT_TUM"
+  : > "$EST_TUM"
+  ros2 run emcl2 pose_logger.py "$GT_TUM" "$EST_TUM" > "$OUTPUT_DIR/logger.log" 2>&1 &
+  local log_pid=$!
+  sleep 2
+  echo "[eval] driving fixed path ..."
+  ros2 run emcl2 drive_path.py
+  sleep 2
+  kill -INT "$log_pid" 2>/dev/null || true
+  sleep 2
+  kill -9 "$log_pid" 2>/dev/null || true
+
+  if [ ! -s "$GT_TUM" ] || [ ! -s "$EST_TUM" ]; then
+    echo "[eval] pose logs are empty (gt=$(wc -l <"$GT_TUM" 2>/dev/null) est=$(wc -l <"$EST_TUM" 2>/dev/null))"
+    return 1
+  fi
+  local cov
+  cov=$(coverage)
+  echo "[eval] gt samples=$(wc -l <"$GT_TUM")  est samples=$(wc -l <"$EST_TUM")  coverage=$cov"
+  if ! python3 -c "import sys; sys.exit(0 if float('$cov') >= 0.9 else 1)"; then
+    echo "[eval] estimate covers only $cov of ground truth (emcl2 stalled mid-run)"
+    return 1
+  fi
+  return 0
+}
+
+ok=false
+for attempt in $(seq 1 "$RETRIES"); do
+  echo "[eval] run attempt $attempt/$RETRIES ..."
+  if run_attempt; then
+    ok=true
+    break
+  fi
+  echo "[eval] attempt $attempt failed; restarting bringup ..."
+  kill_bringup
+done
+if [ "$ok" != true ]; then
+  echo "[eval] ERROR: no valid localization run after $RETRIES attempts"
+  exit 3
 fi
-echo "[eval] gt samples=$(wc -l <"$GT_TUM")  est samples=$(wc -l <"$EST_TUM")"
 
 # 4) Compare with evo (no alignment: gz world frame == emcl2 map frame).
 # Agg backend so the plots render without a display; evo writes
