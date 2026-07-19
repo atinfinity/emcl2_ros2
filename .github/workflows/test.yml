@@ -124,3 +124,50 @@ jobs:
           OUTPUT_DIR: /root/ros2_ws/localization_eval_output
         run: python3 $GITHUB_WORKSPACE/test/post_localization_eval.py
         shell: bash
+      - name: Run recovery scenarios (global localization + wrong initial pose)
+        # Informational: measures how well/fast emcl2 recovers a correct pose
+        # from a wrong / uniform belief. A non-convergence is a result, not a
+        # failure, so this must not gate the PR.
+        continue-on-error: true
+        run: |
+          cd /root/ros2_ws
+          source /opt/ros/$ROS_DISTRO/setup.bash
+          source install/setup.bash
+          export PATH="$HOME/.local/bin:$PATH"
+          export HEADLESS_RENDERING=true SCENARIO=recovery
+          CFG=/root/ros2_ws/install/emcl2/share/emcl2/config
+          echo "== scenario A: uniform global localization =="
+          SCENARIO=recovery TRIGGER_GLOBAL_LOC=true \
+            PARAMS_FILE=$CFG/emcl2_recovery.param.yaml \
+            OUTPUT_DIR=/root/ros2_ws/recovery_a_output \
+            bash install/emcl2/share/emcl2/test/run_localization_eval.sh || true
+          echo "== scenario B: kidnapped-at-start (wrong initial pose) =="
+          SCENARIO=recovery TRIGGER_GLOBAL_LOC=false \
+            PARAMS_FILE=$CFG/emcl2_recovery_wrong_init.param.yaml \
+            OUTPUT_DIR=/root/ros2_ws/recovery_b_output \
+            bash install/emcl2/share/emcl2/test/run_localization_eval.sh || true
+        shell: bash
+      - name: Upload recovery results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-eval
+          path: |
+            /root/ros2_ws/recovery_a_output/
+            /root/ros2_ws/recovery_b_output/
+          if-no-files-found: warn
+      - name: Post recovery result to the PR
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          python3 $GITHUB_WORKSPACE/test/post_recovery_eval.py \
+            "Global localization (A)=/root/ros2_ws/recovery_a_output" \
+            "Wrong initial pose (B)=/root/ros2_ws/recovery_b_output"
+        shell: bash

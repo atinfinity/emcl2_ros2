@@ -1,0 +1,35 @@
+/**:
+  ros__parameters:
+    transform_tolerance: 0.2
+    global_frame_id: "map"
+    odom_frame_id: "odom"
+    base_frame_id: "base_link"
+    footprint_frame_id: "base_footprint"
+    laser_min_range: 0.0
+    laser_max_range: 100000000.0
+    scan_increment: 1
+    # Truth start pose. For the global-localization scenario this is overwritten
+    # by /reinitialize_global_localization (uniform sampling over free space); it
+    # is used as-is only when the harness does not trigger a global reset.
+    initial_pose_x: -2.0
+    initial_pose_y: -0.5
+    initial_pose_a: 0.0
+    # A harder, ambiguity-tolerant configuration for recovery scenarios:
+    #  - sensor_reset enabled so lost particles are teleported to sensor-
+    #    consistent poses (emcl2's Sensor Resetting), which the tracking config
+    #    leaves off,
+    #  - more particles so a multi-modal / uniform belief is represented well
+    #    enough to converge.
+    num_particles: 2000
+    alpha_threshold: 0.5
+    expansion_radius_position: 0.1
+    expansion_radius_orientation: 0.2
+    extraction_rate: 0.1
+    range_threshold: 0.3
+    sensor_reset: true
+    enable_expansion_resetting: true
+    odom_fw_dev_per_fw: 0.19
+    odom_fw_dev_per_rot: 0.0001
+    odom_rot_dev_per_fw: 0.13
+    odom_rot_dev_per_rot: 0.2
+    laser_likelihood_max_dist: 0.1
