@@ -1,0 +1,98 @@
+<?xml version="1.0"?>
+<!-- Copyright 2026 emcl2_ros2 developers -->
+<!-- SPDX-FileCopyrightText: 2026 emcl2_ros2 developers -->
+<!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
+<!--
+  A deliberately symmetric room for evaluating localization under persistent
+  multi-modality. The 8 m x 4 m rectangular room plus two identical pillars at
+  (+2, 0) and (-2, 0) is invariant under a 180 deg rotation about the origin, so
+  every pose has an indistinguishable twin: a range sensor cannot tell the true
+  pose from its rotated counterpart, and the posterior stays bimodal. Built from
+  primitive boxes only (no meshes), so it is self-contained.
+
+  The occupancy map maps/symmetric_room.pgm is generated from the SAME geometry
+  (see maps/generate_symmetric_room.py); keep the two in sync if you edit walls.
+-->
+<sdf version="1.6" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:arg name="headless" default="true"/>
+
+  <world name="default">
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+  <xacro:unless value="$(arg headless)">
+    <plugin filename="gz-sim-scene-broadcaster-system"
+      name="gz::sim::systems::SceneBroadcaster"/>
+  </xacro:unless>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+
+    <light name='sun' type='directional'>
+      <cast_shadows>0</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.8 0.8 0.8 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <model name='ground_plane'>
+      <static>1</static>
+      <link name='link'>
+        <collision name='collision'>
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <specular>0.8 0.8 0.8 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <scene><shadows>0</shadows></scene>
+    <physics name='3ms' type='ode'>
+      <max_step_size>0.003</max_step_size>
+      <real_time_factor>1</real_time_factor>
+    </physics>
+
+    <!-- One static box link (wall / pillar). x,y are the box centre; sx,sy its
+         footprint. Height is fixed at 0.5 m, centred at z=0.25. -->
+    <xacro:macro name="box_link" params="name x y sx sy">
+      <link name="${name}">
+        <pose>${x} ${y} 0.25 0 0 0</pose>
+        <collision name='collision'>
+          <geometry><box><size>${sx} ${sy} 0.5</size></box></geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry><box><size>${sx} ${sy} 0.5</size></box></geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </xacro:macro>
+
+    <model name='symmetric_room'>
+      <static>1</static>
+      <!-- Outer walls: interior 8 m (x in [-4,4]) x 4 m (y in [-2,2]), 0.1 m thick. -->
+      <xacro:box_link name="wall_left"   x="-4.0" y="0.0"  sx="0.1" sy="4.1"/>
+      <xacro:box_link name="wall_right"  x="4.0"  y="0.0"  sx="0.1" sy="4.1"/>
+      <xacro:box_link name="wall_bottom" x="0.0"  y="-2.0" sx="8.1" sy="0.1"/>
+      <xacro:box_link name="wall_top"    x="0.0"  y="2.0"  sx="8.1" sy="0.1"/>
+      <!-- Two identical pillars, symmetric under 180 deg rotation about origin. -->
+      <xacro:box_link name="pillar_a" x="2.0"  y="0.0" sx="0.4" sy="0.4"/>
+      <xacro:box_link name="pillar_b" x="-2.0" y="0.0" sx="0.4" sy="0.4"/>
+    </model>
+  </world>
+</sdf>
