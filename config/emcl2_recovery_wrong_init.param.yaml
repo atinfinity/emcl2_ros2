@@ -8,13 +8,16 @@
     laser_min_range: 0.0
     laser_max_range: 100000000.0
     scan_increment: 1
-    # Deliberately wrong initial pose (~3.5 m away and rotated ~180 deg from the
+    # Deliberately wrong initial pose (~1.7 m away and rotated ~0.6 rad from the
     # true start of -2.0, -0.5, 0.0). The filter must recover from this bad guess
     # via Expansion + Sensor Resetting while the robot drives -- a kidnapped-at-
-    # start scenario. Kept inside free space so particles are not born in a wall.
-    initial_pose_x: 1.5
-    initial_pose_y: 0.5
-    initial_pose_a: 3.14159
+    # start scenario. This offset is tuned so recovery *sometimes* succeeds
+    # (a discriminating difficulty), rather than the earlier ~3.6 m / 180 deg
+    # offset which never recovered and could not distinguish improvements.
+    # Kept inside free space so particles are not born in a wall.
+    initial_pose_x: -0.5
+    initial_pose_y: 0.3
+    initial_pose_a: 0.6
     num_particles: 2000
     alpha_threshold: 0.5
     expansion_radius_position: 0.1

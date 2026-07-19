@@ -187,7 +187,16 @@ run_attempt() {  # $1 = attempt number
     echo "[eval] no data (localization did not come up)"
     return 1
   fi
-  sleep 5  # let the filter settle at the initial pose
+  # For a wrong-initial-pose recovery (scenario B) the filter starts recovering
+  # the instant it receives the map, so a long settle would hide the transient
+  # before logging even begins. Use a short settle there; keep the normal settle
+  # for tracking and for the global-localization scenario (whose scatter is
+  # triggered only after logging has started).
+  local settle=5
+  if [ "$SCENARIO" = "recovery" ] && [ "$TRIGGER_GLOBAL_LOC" != "true" ]; then
+    settle=1
+  fi
+  sleep "$settle"  # let the filter settle at the initial pose
 
   : > "$GT_TUM"
   : > "$EST_TUM"
