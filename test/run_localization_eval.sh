@@ -60,7 +60,11 @@ PY
 #    real messages -- not just the topic -- and restart the whole bringup on
 #    failure instead of driving a path against a filter that never localized.
 LAUNCH_PID=""
-start_bringup() {
+BRINGUP_LOG="$OUTPUT_DIR/bringup.log"
+start_bringup() {  # $1 = attempt number (for a per-attempt log)
+  # Keep one log per attempt so a failed attempt's log is not overwritten by the
+  # retry; the canonical bringup.log is set to the winning attempt on success.
+  BRINGUP_LOG="$OUTPUT_DIR/bringup_attempt${1:-1}.log"
   # Run the launch in its own process group (setsid) so the entire tree -- gz,
   # bridges, robot_state_publisher, map_server, lifecycle_manager, emcl2 -- can
   # be torn down together. Signalling only the launch PID leaves those children
@@ -68,13 +72,18 @@ start_bringup() {
   # attempt (duplicate node names and bonds) and pile up across repeated runs.
   setsid ros2 launch emcl2 localization_eval.launch.py \
     world_sdf:="$WORK/world.sdf" robot_sdf:="$WORK/robot_gt.sdf" \
-    headless_rendering:="$HEADLESS_RENDERING" > "$OUTPUT_DIR/bringup.log" 2>&1 &
+    headless_rendering:="$HEADLESS_RENDERING" > "$BRINGUP_LOG" 2>&1 &
   LAUNCH_PID=$!
 }
 kill_bringup() {
-  # Kill the whole process group (setsid made LAUNCH_PID its leader), then sweep
-  # any stragglers that may have detached (gz and the separately-started logger).
+  # Kill the whole process group (setsid made LAUNCH_PID its leader). This is the
+  # scoped teardown for this run's launch tree.
   [ -n "$LAUNCH_PID" ] && kill -TERM -- "-$LAUNCH_PID" 2>/dev/null || true
+  # Best-effort sweep for stragglers that may have detached from the group (gz
+  # notably) and the separately-started logger. NOTE: these patterns are not
+  # scoped to this run, so do not launch a second eval on the same machine
+  # concurrently -- it would kill the other run's processes too. Fine for CI
+  # (isolated container) and sequential local use.
   pkill -f "gz sim" 2>/dev/null || true
   pkill -f "parameter_bridge" 2>/dev/null || true
   pkill -f "pose_logger.py" 2>/dev/null || true
@@ -103,10 +112,19 @@ coverage() {
   python3 - "$GT_TUM" "$EST_TUM" <<'PY'
 import sys
 def span(f):
+    ts = []
     try:
-        ts = [float(l.split()[0]) for l in open(f) if l.strip()]
+        for line in open(f):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                ts.append(float(line.split()[0]))
+            except (ValueError, IndexError):
+                # skip a malformed line (e.g. a partially flushed final row)
+                continue
     except OSError:
-        ts = []
+        return None
     return (ts[0], ts[-1]) if ts else None
 gt = span(sys.argv[1])
 est = span(sys.argv[2])
@@ -121,8 +139,8 @@ PY
 # One full evaluation attempt: bring up, wait for real data, drive the path
 # while logging, and require the estimate to span (>=90% of) the ground-truth
 # window. Returns 0 only on a clean, fully-covered run.
-run_attempt() {
-  start_bringup
+run_attempt() {  # $1 = attempt number
+  start_bringup "$1"
   echo "[eval] waiting for /ground_truth and /mcl_pose data ..."
   if ! { wait_for_msg /ground_truth 120 && wait_for_msg /mcl_pose 90; }; then
     echo "[eval] no data (localization did not come up)"
@@ -159,8 +177,10 @@ run_attempt() {
 ok=false
 for attempt in $(seq 1 "$RETRIES"); do
   echo "[eval] run attempt $attempt/$RETRIES ..."
-  if run_attempt; then
+  if run_attempt "$attempt"; then
     ok=true
+    # Expose the winning attempt's bringup log under the canonical name.
+    cp -f "$OUTPUT_DIR/bringup_attempt${attempt}.log" "$OUTPUT_DIR/bringup.log" 2>/dev/null || true
     break
   fi
   echo "[eval] attempt $attempt failed; restarting bringup ..."
