@@ -18,8 +18,11 @@
 
 #include <cmath>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <stdexcept>
+#include <utility>
+#include <vector>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -117,31 +120,98 @@ void Mcl::motionUpdate(double x, double y, double t)
   prev_odom_->set(*last_odom_);
 }
 
+void Mcl::largestClusterParticles(std::vector<const Particle *> & out)
+{
+  const double res = 0.5;           // clustering grid resolution [m]
+  const double merge_radius = 1.0;  // gather radius around the peak cell [m]
+
+  // Bin particles by position and find the densest cell. After resampling the
+  // particle density already reflects the posterior weight, so the densest cell
+  // is the dominant mode.
+  std::map<std::pair<int, int>, int> counts;
+  std::pair<int, int> peak_cell;
+  int peak_count = -1;
+  for (const auto & p : particles_) {
+    std::pair<int, int> cell(
+      static_cast<int>(std::floor(p.p_.x_ / res)),
+      static_cast<int>(std::floor(p.p_.y_ / res)));
+    int c = ++counts[cell];
+    if (c > peak_count) {
+      peak_count = c;
+      peak_cell = cell;
+    }
+  }
+
+  // Centroid of the densest cell, then gather every particle within a radius of
+  // it so a mode that straddles a cell boundary is captured as one cluster.
+  double cx = 0.0, cy = 0.0;
+  int n = 0;
+  for (const auto & p : particles_) {
+    if (static_cast<int>(std::floor(p.p_.x_ / res)) == peak_cell.first &&
+      static_cast<int>(std::floor(p.p_.y_ / res)) == peak_cell.second)
+    {
+      cx += p.p_.x_;
+      cy += p.p_.y_;
+      n++;
+    }
+  }
+  if (n > 0) {
+    cx /= n;
+    cy /= n;
+  }
+
+  out.clear();
+  const double r2 = merge_radius * merge_radius;
+  for (const auto & p : particles_) {
+    const double dx = p.p_.x_ - cx;
+    const double dy = p.p_.y_ - cy;
+    if (dx * dx + dy * dy <= r2) {
+      out.push_back(&p);
+    }
+  }
+  if (out.empty()) {  // safety: never estimate from an empty set
+    for (const auto & p : particles_) {
+      out.push_back(&p);
+    }
+  }
+}
+
 void Mcl::meanPose(
   double & x_mean, double & y_mean, double & t_mean, double & x_dev, double & y_dev, double & t_dev,
   double & xy_cov, double & yt_cov, double & tx_cov)
 {
+  std::vector<const Particle *> ps;
+  if (estimate_largest_cluster_) {
+    largestClusterParticles(ps);
+  } else {
+    ps.reserve(particles_.size());
+    for (const auto & p : particles_) {
+      ps.push_back(&p);
+    }
+  }
+  const size_t num = ps.size();
+
   double x, y, t, t2;
   x = y = t = t2 = 0.0;
-  for (const auto & p : particles_) {
-    x += p.p_.x_;
-    y += p.p_.y_;
-    t += p.p_.t_;
-    t2 += normalizeAngle(p.p_.t_ + M_PI);
+  for (const auto * p : ps) {
+    x += p->p_.x_;
+    y += p->p_.y_;
+    t += p->p_.t_;
+    t2 += normalizeAngle(p->p_.t_ + M_PI);
   }
 
-  x_mean = x / particles_.size();
-  y_mean = y / particles_.size();
-  t_mean = t / particles_.size();
-  double t2_mean = t2 / particles_.size();
+  x_mean = x / num;
+  y_mean = y / num;
+  t_mean = t / num;
+  double t2_mean = t2 / num;
 
   double xx, yy, tt, tt2;
   xx = yy = tt = tt2 = 0.0;
-  for (const auto & p : particles_) {
-    xx += pow(p.p_.x_ - x_mean, 2);
-    yy += pow(p.p_.y_ - y_mean, 2);
-    tt += pow(normalizeAngle(p.p_.t_ - t_mean), 2);
-    tt2 += pow(normalizeAngle(p.p_.t_ + M_PI) - t2_mean, 2);
+  for (const auto * p : ps) {
+    xx += pow(p->p_.x_ - x_mean, 2);
+    yy += pow(p->p_.y_ - y_mean, 2);
+    tt += pow(normalizeAngle(p->p_.t_ - t_mean), 2);
+    tt2 += pow(normalizeAngle(p->p_.t_ + M_PI) - t2_mean, 2);
   }
 
   if (tt > tt2) {
@@ -149,17 +219,17 @@ void Mcl::meanPose(
     t_mean = normalizeAngle(t2_mean - M_PI);
   }
 
-  size_t denom = particles_.size() > 1 ? particles_.size() - 1 : 1;
+  size_t denom = num > 1 ? num - 1 : 1;
   x_dev = xx / denom;
   y_dev = yy / denom;
   t_dev = tt / denom;
 
   double xy, yt, tx;
   xy = yt = tx = 0.0;
-  for (const auto & p : particles_) {
-    xy += (p.p_.x_ - x_mean) * (p.p_.y_ - y_mean);
-    yt += (p.p_.y_ - y_mean) * (normalizeAngle(p.p_.t_ - t_mean));
-    tx += (p.p_.x_ - x_mean) * (normalizeAngle(p.p_.t_ - t_mean));
+  for (const auto * p : ps) {
+    xy += (p->p_.x_ - x_mean) * (p->p_.y_ - y_mean);
+    yt += (p->p_.y_ - y_mean) * (normalizeAngle(p->p_.t_ - t_mean));
+    tx += (p->p_.x_ - x_mean) * (normalizeAngle(p->p_.t_ - t_mean));
   }
 
   xy_cov = xy / denom;
