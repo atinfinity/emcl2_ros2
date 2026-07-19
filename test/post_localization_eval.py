@@ -92,10 +92,21 @@ def main():
     raw_url = upload_asset(
         repo, token, os.path.join(out, 'ape_plot_raw.png'), f'pr{pr}_ape_raw.png')
 
+    # Trajectories drawn over the occupancy map (skipped if the plot is absent).
+    traj_section = ''
+    traj_path = os.path.join(out, 'trajectory_map.png')
+    if os.path.exists(traj_path):
+        traj_url = upload_asset(repo, token, traj_path, f'pr{pr}_traj_map.png')
+        traj_section = (
+            '**Trajectory over the occupancy map (dashed = ground truth, '
+            'estimate colored by APE):**\n\n'
+            f'![trajectory on map]({traj_url})\n\n')
+
     body = (
         f'{MARKER}\n'
         '## localization CI: APE (emcl2 vs Gazebo ground truth)\n\n'
         f'```\n{stats}\n```\n\n'
+        f'{traj_section}'
         f'**Trajectory colored by APE (dashed = ground truth):**\n\n'
         f'![APE map]({map_url})\n\n'
         f'**APE over time:**\n\n'
