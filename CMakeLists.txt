@@ -72,6 +72,7 @@ install(PROGRAMS
   test/add_map_obstacles.py
   test/convergence_metrics.py
   test/plot_convergence.py
+  test/plot_trajectory_on_map.py
   test/post_recovery_eval.py
   test/run_localization_eval.sh
   test/composition_smoke_test.sh

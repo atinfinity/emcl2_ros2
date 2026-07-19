@@ -344,6 +344,13 @@ else
     --plot_mode xy --save_plot "$OUTPUT_DIR/ape_plot.png" \
     2>&1 | tee "$OUTPUT_DIR/ape_stats.txt"
   RESULT_RC=${PIPESTATUS[0]}
+
+  # Also draw the trajectories over the occupancy map (evo's xy plot has no map),
+  # using the map emcl2 actually localized against (the mismatch map if any).
+  plot_map="${MAP_YAML:-$(ros2 pkg prefix --share nav2_bringup)/maps/tb3_sandbox.yaml}"
+  ros2 run emcl2 plot_trajectory_on_map.py "$GT_TUM" "$EST_TUM" "$plot_map" \
+    "$OUTPUT_DIR/trajectory_map.png" "emcl2 estimate vs ground truth on map" > /dev/null 2>&1 ||
+    echo "[eval] WARN: trajectory-on-map plot failed"
 fi
 
 echo "[eval] done (rc=$RESULT_RC). Artifacts in $OUTPUT_DIR"
