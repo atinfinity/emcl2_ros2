@@ -17,6 +17,18 @@ set -e
 HEADLESS_RENDERING="${HEADLESS_RENDERING:-true}"
 OUTPUT_DIR="${OUTPUT_DIR:-$(pwd)/localization_eval_output}"
 RETRIES="${RETRIES:-3}"
+# SCENARIO=tracking : APE against ground truth from a correct initial pose.
+# SCENARIO=recovery : the estimate starts far from the truth (a wrong initial
+#                     pose, or -- with TRIGGER_GLOBAL_LOC=true -- a uniform
+#                     global reset) and we measure convergence instead of APE.
+SCENARIO="${SCENARIO:-tracking}"
+# Optional emcl2 param file forwarded to the launch (empty = launch default).
+PARAMS_FILE="${PARAMS_FILE:-}"
+# When true, call /reinitialize_global_localization once emcl2 is up, scattering
+# the particles uniformly over free space (global-localization scenario).
+TRIGGER_GLOBAL_LOC="${TRIGGER_GLOBAL_LOC:-false}"
+# Translation error (m) under which the recovery scenario counts as converged.
+CONVERGE_THRESHOLD="${CONVERGE_THRESHOLD:-0.3}"
 WORK="$(mktemp -d)"
 mkdir -p "$OUTPUT_DIR"
 
@@ -24,6 +36,7 @@ SIM=$(ros2 pkg prefix --share nav2_minimal_tb3_sim)
 EMCL2=$(ros2 pkg prefix --share emcl2)
 
 echo "[eval] HEADLESS_RENDERING=$HEADLESS_RENDERING  OUTPUT_DIR=$OUTPUT_DIR  RETRIES=$RETRIES"
+echo "[eval] SCENARIO=$SCENARIO  TRIGGER_GLOBAL_LOC=$TRIGGER_GLOBAL_LOC  PARAMS_FILE=${PARAMS_FILE:-<launch default>}"
 
 if [ "$HEADLESS_RENDERING" = "true" ]; then
   # GPU-less software rendering for gz's ogre2 sensors.
@@ -70,9 +83,11 @@ start_bringup() {  # $1 = attempt number (for a per-attempt log)
   # be torn down together. Signalling only the launch PID leaves those children
   # orphaned; stale lifecycle_manager/emcl2 nodes then collide with the next
   # attempt (duplicate node names and bonds) and pile up across repeated runs.
+  local params_arg=""
+  [ -n "$PARAMS_FILE" ] && params_arg="params_file:=$PARAMS_FILE"
   setsid ros2 launch emcl2 localization_eval.launch.py \
     world_sdf:="$WORK/world.sdf" robot_sdf:="$WORK/robot_gt.sdf" \
-    headless_rendering:="$HEADLESS_RENDERING" > "$BRINGUP_LOG" 2>&1 &
+    headless_rendering:="$HEADLESS_RENDERING" $params_arg > "$BRINGUP_LOG" 2>&1 &
   LAUNCH_PID=$!
 }
 kill_bringup() {
@@ -146,13 +161,24 @@ run_attempt() {  # $1 = attempt number
     echo "[eval] no data (localization did not come up)"
     return 1
   fi
-  sleep 5  # let the filter settle
+  sleep 5  # let the filter settle at the initial pose
 
   : > "$GT_TUM"
   : > "$EST_TUM"
   ros2 run emcl2 pose_logger.py "$GT_TUM" "$EST_TUM" > "$OUTPUT_DIR/logger.log" 2>&1 &
   local log_pid=$!
   sleep 2
+
+  if [ "$TRIGGER_GLOBAL_LOC" = "true" ]; then
+    # Scatter the particles uniformly AFTER logging has started, so the metric
+    # captures the full uniform -> converged transient rather than a belief that
+    # already re-converged during an untimed settle.
+    echo "[eval] triggering global localization (uniform reset) ..."
+    ros2 service call /reinitialize_global_localization std_srvs/srv/Empty \
+      > /dev/null 2>&1 || echo "[eval] WARN: reinitialize_global_localization call failed"
+    sleep 1
+  fi
+
   echo "[eval] driving fixed path ..."
   ros2 run emcl2 drive_path.py
   sleep 2
@@ -191,22 +217,36 @@ if [ "$ok" != true ]; then
   exit 3
 fi
 
-# 4) Compare with evo (no alignment: gz world frame == emcl2 map frame).
-# Agg backend so the plots render without a display; evo writes
-# ape_plot_map.png (trajectory colored by error) and ape_plot_raw.png.
+# 4) Score the run.
 export MPLBACKEND=Agg
-echo "[eval] running evo_ape ..."
-evo_ape tum "$GT_TUM" "$EST_TUM" \
-  --t_max_diff 0.1 \
-  --save_results "$OUTPUT_DIR/ape_results.zip" \
-  --plot_mode xy --save_plot "$OUTPUT_DIR/ape_plot.png" \
-  2>&1 | tee "$OUTPUT_DIR/ape_stats.txt"
-EVO_RC=${PIPESTATUS[0]}
+RESULT_RC=0
+if [ "$SCENARIO" = "recovery" ]; then
+  # Recovery / global-localization: measure convergence, not average APE. The
+  # estimate starts far from the truth, so an APE mean would be meaningless.
+  echo "[eval] computing convergence metrics (threshold=${CONVERGE_THRESHOLD} m) ..."
+  ros2 run emcl2 convergence_metrics.py \
+    "$GT_TUM" "$EST_TUM" "$CONVERGE_THRESHOLD" > "$OUTPUT_DIR/convergence.txt"
+  RESULT_RC=$?
+  cat "$OUTPUT_DIR/convergence.txt"
+  # Informational: a failure to converge is a reportable result, not an error;
+  # only a broken metric computation (rc>=2) is treated as a hard failure.
+  [ "$RESULT_RC" -ge 2 ] || RESULT_RC=0
+else
+  # Tracking: APE against ground truth (no alignment: gz world == emcl2 map).
+  # evo writes ape_plot_map.png (trajectory colored by error) and ape_plot_raw.png.
+  echo "[eval] running evo_ape ..."
+  evo_ape tum "$GT_TUM" "$EST_TUM" \
+    --t_max_diff 0.1 \
+    --save_results "$OUTPUT_DIR/ape_results.zip" \
+    --plot_mode xy --save_plot "$OUTPUT_DIR/ape_plot.png" \
+    2>&1 | tee "$OUTPUT_DIR/ape_stats.txt"
+  RESULT_RC=${PIPESTATUS[0]}
+fi
 
-echo "[eval] done (evo rc=$EVO_RC). Artifacts in $OUTPUT_DIR"
+echo "[eval] done (rc=$RESULT_RC). Artifacts in $OUTPUT_DIR"
 # Disable the EXIT trap and clean up explicitly so that signals from the
 # killed background processes cannot turn a successful run into a failure.
 trap - EXIT
 cleanup
 disown -a 2>/dev/null || true
-exit "$EVO_RC"
+exit "$RESULT_RC"
