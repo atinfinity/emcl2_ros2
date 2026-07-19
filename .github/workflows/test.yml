@@ -37,6 +37,13 @@ jobs:
           colcon test
           colcon test-result --verbose
         shell: bash
+      - name: Composition smoke test
+        run: |
+          cd /root/ros2_ws
+          source /opt/ros/$ROS_DISTRO/setup.bash
+          source install/setup.bash
+          bash install/emcl2/share/emcl2/test/composition_smoke_test.sh
+        shell: bash
 
   test-asan:
     runs-on: ubuntu-24.04
