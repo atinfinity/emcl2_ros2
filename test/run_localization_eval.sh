@@ -61,18 +61,25 @@ PY
 #    failure instead of driving a path against a filter that never localized.
 LAUNCH_PID=""
 start_bringup() {
-  ros2 launch emcl2 localization_eval.launch.py \
+  # Run the launch in its own process group (setsid) so the entire tree -- gz,
+  # bridges, robot_state_publisher, map_server, lifecycle_manager, emcl2 -- can
+  # be torn down together. Signalling only the launch PID leaves those children
+  # orphaned; stale lifecycle_manager/emcl2 nodes then collide with the next
+  # attempt (duplicate node names and bonds) and pile up across repeated runs.
+  setsid ros2 launch emcl2 localization_eval.launch.py \
     world_sdf:="$WORK/world.sdf" robot_sdf:="$WORK/robot_gt.sdf" \
     headless_rendering:="$HEADLESS_RENDERING" > "$OUTPUT_DIR/bringup.log" 2>&1 &
   LAUNCH_PID=$!
 }
 kill_bringup() {
-  [ -n "$LAUNCH_PID" ] && kill "$LAUNCH_PID" 2>/dev/null || true
+  # Kill the whole process group (setsid made LAUNCH_PID its leader), then sweep
+  # any stragglers that may have detached (gz and the separately-started logger).
+  [ -n "$LAUNCH_PID" ] && kill -TERM -- "-$LAUNCH_PID" 2>/dev/null || true
   pkill -f "gz sim" 2>/dev/null || true
   pkill -f "parameter_bridge" 2>/dev/null || true
   pkill -f "pose_logger.py" 2>/dev/null || true
   LAUNCH_PID=""
-  sleep 3  # let gz transport ports free before a restart
+  sleep 3  # let the process group die and gz transport ports free
 }
 cleanup() {
   kill_bringup
