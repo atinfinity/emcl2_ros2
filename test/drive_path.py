@@ -30,14 +30,23 @@ import rclpy
 from rclpy.node import Node
 
 # (linear.x [m/s], angular.z [rad/s], duration [s]) segments.
+# A demanding but collision-conscious path: faster translation, brisk in-place
+# spins in both directions and tight arcs stress the motion model and the
+# rotation handling, and the extra length gives the evaluation more samples so
+# small accuracy changes are easier to separate from run-to-run noise.
 SCHEDULE = [
-    (0.15, 0.0, 6.0),    # forward
-    (0.0, 0.5, 3.0),     # turn left in place
-    (0.15, 0.0, 6.0),    # forward
-    (0.0, -0.5, 3.0),    # turn right in place
-    (0.15, 0.3, 8.0),    # forward + gentle arc
-    (0.0, 0.6, 3.0),     # turn
-    (0.15, 0.0, 6.0),    # forward
+    (0.20, 0.0, 3.5),    # forward
+    (0.16, 0.9, 5.5),    # arc left (translate + turn)
+    (0.0, 1.0, 2.0),     # short spin to reorient
+    (0.20, -0.6, 5.5),   # arc right
+    (0.0, -1.1, 2.0),    # short fast spin
+    (0.18, 0.8, 5.5),    # tight arc left
+    (0.20, 0.0, 3.5),    # forward
+    (0.0, 1.0, 2.0),     # spin
+    (0.16, -0.9, 5.5),   # tight arc right
+    (0.20, 0.0, 3.0),    # forward
+    (0.0, -1.0, 2.0),    # spin
+    (0.18, 0.7, 5.0),    # arc
 ]
 
 
